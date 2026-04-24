@@ -1,5 +1,6 @@
 package com.example.whatdoing.ui.album
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -33,6 +34,26 @@ fun AlbumScreen(modifier: Modifier = Modifier) {
 
     if (showSearch) {
         SearchScreen(onBack = { showSearch = false })
+        return
+    }
+
+    var showUpload by remember { mutableStateOf(false) }
+
+    if (showUpload) {
+        UploadScreen(onBack = { showUpload = false })
+        return
+    }
+
+    var selectedPost by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
+
+    if (selectedPost != null) {
+        PostDetailScreen(
+            title = selectedPost!!.first,
+            tags = selectedPost!!.second,
+            imageUrl = null,
+            onBack = { selectedPost = null },
+            modifier = modifier
+        )
         return
     }
 
@@ -75,13 +96,13 @@ fun AlbumScreen(modifier: Modifier = Modifier) {
             ) {
                 items(dummyPosts.size) { index ->
                     val post = dummyPosts[index]
-                    PostCard(title = post.first, tags = post.second)
+                    PostCard(title = post.first, tags = post.second, onClick = { selectedPost = post })
                 }
             }
 
             // 업로드 버튼 (탭바 위)
             Button(
-                onClick = { /* 업로드 */ },
+                onClick = { showUpload = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -94,11 +115,12 @@ fun AlbumScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun PostCard(title: String, tags: List<String>) {
+fun PostCard(title: String, tags: List<String>, onClick: () -> Unit = {}) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f),
+            .aspectRatio(1f)
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
