@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "590780046509",
+    "project_id": "whatdoing-c4457",
+    "storage_bucket": "whatdoing-c4457.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:590780046509:android:1643da92222bac38db3a24",
+        "android_client_info": {
+          "package_name": "com.example.whatdoing"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTBemQH8671RT3j9awbjowH-52cxx5w9k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
