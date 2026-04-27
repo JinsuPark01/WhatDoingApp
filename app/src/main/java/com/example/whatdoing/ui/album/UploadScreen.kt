@@ -6,13 +6,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,14 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import coil3.compose.AsyncImage
+import com.example.whatdoing.ui.theme.WhatDoingTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UploadScreen(
-    onBack: () -> Unit,
+    navController: NavController,
     modifier: Modifier = Modifier
 ) {
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -36,7 +39,6 @@ fun UploadScreen(
     var tagInput by remember { mutableStateOf("") }
     var tags by remember { mutableStateOf(listOf<String>()) }
 
-    // 갤러리 런처
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri -> selectedImageUri = uri }
@@ -51,30 +53,11 @@ fun UploadScreen(
         tagInput = ""
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("사진 올리기") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
-                    }
-                },
-                actions = {
-                    TextButton(
-                        onClick = { /* 업로드 실행 */ },
-                        enabled = selectedImageUri != null && title.isNotBlank() && tags.isNotEmpty()
-                    ) {
-                        Text("올리기")
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
+    Column(modifier = modifier.fillMaxSize()) {
+        // 컨텐츠 영역
         Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier = Modifier
+                .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -135,7 +118,7 @@ fun UploadScreen(
 
             // 태그 칩 목록
             if (tags.isNotEmpty()) {
-                androidx.compose.foundation.lazy.LazyRow(
+                LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(tags.size) { index ->
@@ -162,5 +145,13 @@ fun UploadScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UploadScreenPreview() {
+    WhatDoingTheme {
+        UploadScreen(navController = rememberNavController())
     }
 }

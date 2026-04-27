@@ -4,8 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,57 +14,26 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import coil3.compose.AsyncImage
 import com.example.whatdoing.ui.theme.WhatDoingTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostDetailScreen(
+    navController: NavController,
     title: String,
     tags: List<String>,
     imageUrl: String?,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showReportDialog by remember { mutableStateOf(false) }
-    var showMenu by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "더보기")
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("신고하기") },
-                            onClick = {
-                                showMenu = false
-                                showReportDialog = true
-                            }
-                        )
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // 사진 + 제목 + 태그 영역 (스크롤 불가, 그리드처럼 고정)
-            Column(modifier = Modifier.weight(1f)) {
+    Column(modifier = modifier.fillMaxSize()) {
+        // 컨텐츠 + FAB
+        Box(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 사진
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -93,6 +61,7 @@ fun PostDetailScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // 제목
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
@@ -101,6 +70,7 @@ fun PostDetailScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // 태그
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -114,17 +84,27 @@ fun PostDetailScreen(
                 }
             }
 
-            // 저장 버튼 (AlbumScreen 업로드 버튼과 완전 동일)
-            Button(
-                onClick = { /* 갤러리 저장 */ },
+            // 신고 FAB (AlbumScreen 플로팅 버튼이랑 동일 위치)
+            FloatingActionButton(
+                onClick = { showReportDialog = true },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
             ) {
-                Text(text = "저장하기", fontSize = 16.sp)
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("신고하기", fontSize = 14.sp)
+                }
             }
         }
+
     }
 
     // 신고 다이얼로그
@@ -159,15 +139,15 @@ fun PostDetailScreen(
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true)
 @Composable
 fun PostDetailScreenPreview() {
     WhatDoingTheme {
         PostDetailScreen(
+            navController = rememberNavController(),
             title = "야근하는 밤",
             tags = listOf("#야근", "#사무실", "#밤"),
-            imageUrl = null,
-            onBack = {}
+            imageUrl = null
         )
     }
 }

@@ -13,76 +13,69 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.whatdoing.ui.theme.WhatDoingTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyPageScreen(modifier: Modifier = Modifier) {
+fun MyPageScreen(
+    navController: NavController,
+    modifier: Modifier = Modifier
+) {
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("마이페이지") }
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        // 프로필 영역
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                modifier = Modifier.size(80.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(text = "👤", fontSize = 40.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "사용자 닉네임",
+                style = MaterialTheme.typography.titleMedium
             )
         }
-    ) { innerPadding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // 프로필 영역
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // 프로필 이미지 (임시)
-                Surface(
-                    modifier = Modifier.size(80.dp),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(text = "👤", fontSize = 40.sp)
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "사용자 닉네임",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
 
-            Divider()
+        HorizontalDivider()
 
-            // 메뉴 목록
-            MenuSection(title = "계정") {
-                MenuItem(text = "내 게시물", onClick = { /* TODO */ })
-                MenuItem(text = "내 정보 관리", onClick = { /* TODO */ })
-                MenuItem(text = "차단 계정 관리", onClick = { /* TODO */ })
-            }
-
-            Divider()
-
-            MenuSection(title = "서비스") {
-                MenuItem(text = "의견 보내기", onClick = { /* TODO */ })
-                MenuItem(text = "약관 및 정책", onClick = { /* TODO */ })
-            }
-
-            Divider()
-
-            MenuSection(title = "기타") {
-                MenuItem(text = "로그아웃", onClick = { showLogoutDialog = true })
-                MenuItem(text = "탈퇴하기", onClick = { showDeleteAccountDialog = true })
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
+        MenuSection(title = "계정") {
+            MenuItem(text = "내 게시물", onClick = { /* TODO */ })
+            MenuItem(text = "내 정보 관리", onClick = { /* TODO */ })
+            MenuItem(text = "차단 계정 관리", onClick = { /* TODO */ })
         }
+
+        HorizontalDivider()
+
+        MenuSection(title = "서비스") {
+            MenuItem(text = "의견 보내기", onClick = { /* TODO */ })
+            MenuItem(text = "약관 및 정책", onClick = { /* TODO */ })
+        }
+
+        HorizontalDivider()
+
+        MenuSection(title = "기타") {
+            MenuItem(text = "로그아웃", onClick = { showLogoutDialog = true })
+            MenuItem(text = "탈퇴하기", onClick = { showDeleteAccountDialog = true })
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 
     // 로그아웃 다이얼로그
@@ -176,10 +169,10 @@ fun MenuItem(
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true)
 @Composable
 fun MyPageScreenPreview() {
     WhatDoingTheme {
-        MyPageScreen()
+        MyPageScreen(navController = rememberNavController())
     }
 }

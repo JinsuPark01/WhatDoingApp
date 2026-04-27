@@ -2,25 +2,26 @@ package com.example.whatdoing.ui.album
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.whatdoing.ui.theme.WhatDoingTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AlbumScreen(modifier: Modifier = Modifier) {
-
-    // 임시 더미 데이터
+fun AlbumScreen(
+    navController: NavController,
+    modifier: Modifier = Modifier
+) {
     val dummyPosts = listOf(
         Pair("야근하는 밤", listOf("#야근", "#사무실", "#밤")),
         Pair("회식 삼겹살", listOf("#회식", "#삼겹살", "#소주")),
@@ -28,87 +29,45 @@ fun AlbumScreen(modifier: Modifier = Modifier) {
         Pair("카페 공부", listOf("#카페", "#공부", "#아메리카노")),
         Pair("친구들이랑", listOf("#술자리", "#친구", "#맥주")),
         Pair("야외 운동", listOf("#러닝", "#운동", "#공원")),
+        Pair("나 카페야", listOf("#카페", "#성수", "#케이크")),
+        Pair("요아정 먹기", listOf("#자취방", "#요아정", "#친구")),
     )
 
-    var showSearch by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxSize()) {
 
-    if (showSearch) {
-        SearchScreen(onBack = { showSearch = false })
-        return
-    }
-
-    var showUpload by remember { mutableStateOf(false) }
-
-    if (showUpload) {
-        UploadScreen(onBack = { showUpload = false })
-        return
-    }
-
-    var selectedPost by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
-
-    if (selectedPost != null) {
-        PostDetailScreen(
-            title = selectedPost!!.first,
-            tags = selectedPost!!.second,
-            imageUrl = null,
-            onBack = { selectedPost = null },
-            modifier = modifier
-        )
-        return
-    }
-
-    Scaffold(
-        topBar = {
-            Column {
-                // 1행: 앱이름 + 검색버튼
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = "지금뭐해?",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    },
-                    actions = {
-                        IconButton(onClick = { showSearch = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "검색"
-                            )
-                        }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(dummyPosts.size) { index ->
+                val post = dummyPosts[index]
+                PostCard(
+                    title = post.first,
+                    tags = post.second,
+                    onClick = {
+                        navController.navigate("detail/${post.first}")
                     }
                 )
-                // 2행: 업로드 버튼 (임시 위치, 나중에 탭바 위로 이동)
             }
         }
-    ) { innerPadding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // 사진 그리드
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                items(dummyPosts.size) { index ->
-                    val post = dummyPosts[index]
-                    PostCard(title = post.first, tags = post.second, onClick = { selectedPost = post })
-                }
-            }
 
-            // 업로드 버튼 (탭바 위)
-            Button(
-                onClick = { showUpload = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp)
+        FloatingActionButton(
+            onClick = { navController.navigate("upload") },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "+ 사진 올리기", fontSize = 16.sp)
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("사진 올리기", fontSize = 14.sp)
             }
         }
     }
@@ -125,13 +84,11 @@ fun PostCard(title: String, tags: List<String>, onClick: () -> Unit = {}) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // 나중에 실제 이미지로 교체
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {}
 
-            // 태그 표시
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -150,5 +107,13 @@ fun PostCard(title: String, tags: List<String>, onClick: () -> Unit = {}) {
                 )
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AlbumScreenPreview() {
+    WhatDoingTheme {
+        AlbumScreen(navController = rememberNavController())
     }
 }
