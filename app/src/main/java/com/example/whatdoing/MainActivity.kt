@@ -5,13 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.*
@@ -20,6 +20,7 @@ import com.example.whatdoing.ui.album.PostDetailScreen
 import com.example.whatdoing.ui.album.UploadScreen
 import com.example.whatdoing.ui.common.ActionBottomBar
 import com.example.whatdoing.ui.common.MainBottomBar
+import com.example.whatdoing.ui.common.SearchTopBar
 import com.example.whatdoing.ui.common.WhatDoingTopBar
 import com.example.whatdoing.ui.mypage.MyPageScreen
 import com.example.whatdoing.ui.theme.WhatDoingTheme
@@ -45,22 +46,64 @@ fun MainApp() {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
-    val showBottomBar = currentRoute in listOf("album", "ai", "mypage")
+    var isSearchMode by remember { mutableStateOf(false) }
+    var searchInput by remember { mutableStateOf("") }
+    var searchTags by remember { mutableStateOf(listOf<String>()) }
+    val recentSearches = remember { mutableStateListOf("#야근", "#회식", "#헬스") }
+
+    // 상세페이지 메뉴/신고 상태
+    var showDetailMenu by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var reportReason by remember { mutableStateOf("") }
+
+    fun addTag() {
+        val tag = searchInput.trim().let {
+            if (it.startsWith("#")) it else "#$it"
+        }
+
+        if (tag.length > 1 && !searchTags.contains(tag)) {
+            searchTags = searchTags + tag
+
+            if (!recentSearches.contains(tag)) {
+                recentSearches.add(0, tag)
+            }
+        }
+
+        searchInput = ""
+    }
+
+    val showMainBottomBar = currentRoute in listOf("album", "ai", "mypage")
 
     Scaffold(
-        // 🔥 inset 충돌 방지
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
 
-        // ✅ TopBar는 여기서 관리
         topBar = {
             when {
+
+                currentRoute == "album" && isSearchMode -> {
+                    SearchTopBar(
+                        inputText = searchInput,
+                        onInputChange = { searchInput = it },
+                        searchTags = searchTags,
+                        onAddTag = { addTag() },
+                        onRemoveTag = { tag ->
+                            searchTags = searchTags - tag
+                        },
+                        onBackClick = {
+                            isSearchMode = false
+                            searchTags = emptyList()
+                            searchInput = ""
+                        }
+                    )
+                }
+
                 currentRoute == "album" -> {
                     WhatDoingTopBar(
                         title = "지금뭐해?",
                         actions = {
-                            IconButton(onClick = {
-                                navController.navigate("search")
-                            }) {
+                            IconButton(
+                                onClick = { isSearchMode = true }
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Search,
                                     contentDescription = "검색"
@@ -69,37 +112,54 @@ fun MainApp() {
                         }
                     )
                 }
+
                 currentRoute == "ai" -> {
                     WhatDoingTopBar(title = "AI 수정")
                 }
+
                 currentRoute == "mypage" -> {
                     WhatDoingTopBar(title = "마이페이지")
                 }
+
                 currentRoute == "upload" -> {
                     WhatDoingTopBar(
                         title = "사진 올리기",
-                        actions = {
-                            IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(Icons.Default.Close, contentDescription = "닫기")
-                            }
-                        }
+                        onBackClick = { navController.popBackStack() }
                     )
                 }
+
                 currentRoute?.startsWith("detail") == true -> {
-                    val detailTitle = currentBackStackEntry?.arguments?.getString("title") ?: "상세"
+                    val detailTitle =
+                        currentBackStackEntry?.arguments?.getString("title") ?: "상세"
+
                     WhatDoingTopBar(
                         title = detailTitle,
+                        onBackClick = { navController.popBackStack() },
                         actions = {
-                            IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(Icons.Default.Close, contentDescription = "닫기")
+                            IconButton(
+                                onClick = { showDetailMenu = true }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "더보기"
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showDetailMenu,
+                                onDismissRequest = {
+                                    showDetailMenu = false
+                                }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("신고하기") },
+                                    onClick = {
+                                        showDetailMenu = false
+                                        showReportDialog = true
+                                    }
+                                )
                             }
                         }
-                    )
-                }
-                currentRoute == "search" -> {
-                    WhatDoingTopBar(
-                        title = "검색",
-                        onBackClick = { navController.popBackStack() }
                     )
                 }
             }
@@ -107,43 +167,40 @@ fun MainApp() {
 
         bottomBar = {
             when {
-                // 메인 탭
-                currentRoute in listOf("album", "ai", "mypage") -> {
+
+                currentRoute?.startsWith("detail") == true -> {
+                    ActionBottomBar(
+                        buttonText = "저장하기",
+                        onClick = {
+                            // TODO 저장 기능
+                        }
+                    )
+                }
+
+                currentRoute == "upload" -> {
+                    ActionBottomBar(
+                        buttonText = "업로드",
+                        onClick = {
+                            // TODO 업로드 기능
+                        }
+                    )
+                }
+
+                showMainBottomBar -> {
                     MainBottomBar(
-                        currentRoute = currentRoute,
+                        currentRoute = currentRoute ?: "album",
                         onNavigate = { route ->
                             navController.navigate(route) {
-                                popUpTo("album") {
-                                    saveState = true
-                                }
+                                popUpTo("album") { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
                         }
                     )
                 }
-
-                // 업로드
-                currentRoute == "upload" -> {
-                    ActionBottomBar(
-                        buttonText = "업로드",
-                        onClick = {
-                            // TODO: 업로드 기능 연결
-                        }
-                    )
-                }
-
-                // 상세 게시물
-                currentRoute?.startsWith("detail") == true -> {
-                    ActionBottomBar(
-                        buttonText = "저장하기",
-                        onClick = {
-                            // TODO: 저장 기능 연결
-                        }
-                    )
-                }
             }
         }
+
     ) { innerPadding ->
 
         NavHost(
@@ -151,29 +208,85 @@ fun MainApp() {
             startDestination = "album",
             modifier = Modifier.padding(innerPadding)
         ) {
+
             composable("album") {
-                AlbumScreen(navController = navController)
+                AlbumScreen(
+                    navController = navController,
+                    searchTags = searchTags,
+                    recentSearches = recentSearches,
+                    isSearchMode = isSearchMode,
+                    onRecentSearchClick = { tag ->
+                        searchInput = tag.removePrefix("#")
+                        addTag()
+                    }
+                )
             }
 
             composable("ai") { /* TODO */ }
+
             composable("mypage") {
                 MyPageScreen(navController = navController)
             }
+
             composable("upload") {
                 UploadScreen(navController = navController)
             }
-            composable("search") { /* TODO */ }
 
             composable("detail/{title}") { backStackEntry ->
                 val title = backStackEntry.arguments?.getString("title") ?: ""
-                // TODO: Firebase 연동 후 title로 실제 게시물 조회
+
                 PostDetailScreen(
                     navController = navController,
                     title = title,
-                    tags = listOf("#야근", "#사무실", "#밤"), // 임시 더미
+                    tags = listOf("#야근", "#사무실", "#밤"),
                     imageUrl = null
                 )
             }
+        }
+
+        // 신고 다이얼로그
+        if (showReportDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showReportDialog = false
+                    reportReason = ""
+                },
+                title = {
+                    Text("신고하기")
+                },
+                text = {
+                    OutlinedTextField(
+                        value = reportReason,
+                        onValueChange = { reportReason = it },
+                        placeholder = {
+                            Text("신고 사유를 입력해주세요")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            // TODO 신고 처리
+                            showReportDialog = false
+                            reportReason = ""
+                        },
+                        enabled = reportReason.isNotBlank()
+                    ) {
+                        Text("신고")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showReportDialog = false
+                            reportReason = ""
+                        }
+                    ) {
+                        Text("취소")
+                    }
+                }
+            )
         }
     }
 }

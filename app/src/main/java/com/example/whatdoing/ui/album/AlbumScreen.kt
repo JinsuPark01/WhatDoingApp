@@ -2,6 +2,7 @@ package com.example.whatdoing.ui.album
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,10 @@ import com.example.whatdoing.ui.theme.WhatDoingTheme
 @Composable
 fun AlbumScreen(
     navController: NavController,
+    searchTags: List<String>,
+    recentSearches: List<String>,
+    isSearchMode: Boolean,
+    onRecentSearchClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val dummyPosts = listOf(
@@ -33,29 +38,71 @@ fun AlbumScreen(
         Pair("요아정 먹기", listOf("#자취방", "#요아정", "#친구")),
     )
 
+    val filteredPosts = dummyPosts.filter { post ->
+        searchTags.isEmpty() || searchTags.all { tag ->
+            post.second.contains(tag)
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(dummyPosts.size) { index ->
-                val post = dummyPosts[index]
-                PostCard(
-                    title = post.first,
-                    tags = post.second,
-                    onClick = {
-                        navController.navigate("detail/${post.first}")
-                    }
+        Column(modifier = Modifier.fillMaxSize()) {
+
+            // 검색 모드 + 태그 없을 때 최근 검색어
+            if (isSearchMode && searchTags.isEmpty()) {
+                Text(
+                    text = "최근 검색",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(recentSearches.size) { index ->
+                        SuggestionChip(
+                            onClick = {
+                                onRecentSearchClick(recentSearches[index])
+                            },
+                            label = {
+                                Text(recentSearches[index])
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // 게시물 Grid
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(filteredPosts.size) { index ->
+                    val post = filteredPosts[index]
+
+                    PostCard(
+                        title = post.first,
+                        tags = post.second,
+                        onClick = {
+                            navController.navigate("detail/${post.first}")
+                        }
+                    )
+                }
             }
         }
 
+        // 업로드 FAB
         FloatingActionButton(
-            onClick = { navController.navigate("upload") },
+            onClick = {
+                navController.navigate("upload")
+            },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
@@ -65,16 +112,28 @@ fun AlbumScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null
+                )
+
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("사진 올리기", fontSize = 14.sp)
+
+                Text(
+                    text = "사진 올리기",
+                    fontSize = 14.sp
+                )
             }
         }
     }
 }
 
 @Composable
-fun PostCard(title: String, tags: List<String>, onClick: () -> Unit = {}) {
+fun PostCard(
+    title: String,
+    tags: List<String>,
+    onClick: () -> Unit = {}
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -84,6 +143,7 @@ fun PostCard(title: String, tags: List<String>, onClick: () -> Unit = {}) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.surfaceVariant
@@ -99,6 +159,7 @@ fun PostCard(title: String, tags: List<String>, onClick: () -> Unit = {}) {
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+
                 Text(
                     text = tags.joinToString(" "),
                     style = MaterialTheme.typography.labelSmall,
@@ -114,6 +175,12 @@ fun PostCard(title: String, tags: List<String>, onClick: () -> Unit = {}) {
 @Composable
 fun AlbumScreenPreview() {
     WhatDoingTheme {
-        AlbumScreen(navController = rememberNavController())
+        AlbumScreen(
+            navController = rememberNavController(),
+            searchTags = emptyList(),
+            recentSearches = listOf("#야근", "#회식"),
+            isSearchMode = false,
+            onRecentSearchClick = {}
+        )
     }
 }
