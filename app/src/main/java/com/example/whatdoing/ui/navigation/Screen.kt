@@ -1,0 +1,18 @@
+package com.example.whatdoing.ui.navigation
+
+sealed class Screen(val route: String) {
+    // 인증
+    object Login : Screen("login")
+
+    // 메인
+    object Home : Screen("home")
+    object WriteRecord : Screen("write_record")
+    object MyPage : Screen("mypage")
+
+    // 그룹
+    object GroupCreate : Screen("group_create")
+    object GroupJoin : Screen("group_join")
+    object GroupDetail : Screen("group_detail/{groupId}") {
+        fun createRoute(groupId: String) = "group_detail/$groupId"
+    }
+}
