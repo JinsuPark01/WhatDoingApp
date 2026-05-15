@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.whatdoing.ui.screen.auth.LoginScreen
+import com.example.whatdoing.ui.screen.home.HomeScreen
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -12,10 +14,16 @@ fun NavGraph(navController: NavHostController) {
         startDestination = Screen.Login.route
     ) {
         composable(Screen.Login.route) {
-            // TODO LoginScreen()
+            LoginScreen(
+                onNavigateToHome = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                }
+            )
         }
         composable(Screen.Home.route) {
-            // TODO HomeScreen()
+            HomeScreen()
         }
         composable(Screen.WriteRecord.route) {
             // TODO WriteRecordScreen()
