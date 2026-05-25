@@ -23,7 +23,14 @@ fun NavGraph(navController: NavHostController) {
             )
         }
         composable(Screen.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onNavigateToGroup = { groupId ->
+                    navController.navigate(Screen.GroupDetail.createRoute(groupId))
+                },
+                onNavigateToCreateGroup = {
+                    navController.navigate(Screen.GroupCreate.route)
+                }
+            )
         }
         composable(Screen.WriteRecord.route) {
             // TODO WriteRecordScreen()
