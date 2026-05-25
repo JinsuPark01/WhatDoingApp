@@ -1,0 +1,89 @@
+package com.example.whatdoing.ui.screen.group
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.whatdoing.domain.usecase.CreateGroupUseCase
+import com.google.firebase.auth.FirebaseAuth
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class GroupCreateViewModel @Inject constructor(
+    private val createGroupUseCase: CreateGroupUseCase,
+    private val firebaseAuth: FirebaseAuth
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(GroupCreateContract.UiState())
+    val uiState = _uiState.asStateFlow()
+
+    private val _sideEffect = MutableSharedFlow<GroupCreateContract.SideEffect>()
+    val sideEffect = _sideEffect.asSharedFlow()
+
+    fun handleIntent(intent: GroupCreateContract.Intent) {
+        when (intent) {
+            is GroupCreateContract.Intent.UpdateName -> {
+                _uiState.update { it.copy(
+                    name = intent.name,
+                    errorMessage = null
+                )}
+            }
+            is GroupCreateContract.Intent.UpdateDescription -> {
+                _uiState.update { it.copy(description = intent.description) }
+            }
+            is GroupCreateContract.Intent.UpdateImage -> {
+                _uiState.update { it.copy(imageUri = intent.uri) }
+            }
+            is GroupCreateContract.Intent.UpdatePrivate -> {
+                _uiState.update { it.copy(
+                    isPrivate = intent.isPrivate,
+                    password = if (!intent.isPrivate) "" else it.password
+                )}
+            }
+            is GroupCreateContract.Intent.UpdatePassword -> {
+                _uiState.update { it.copy(password = intent.password) }
+            }
+            GroupCreateContract.Intent.SubmitCreate -> createGroup()
+        }
+    }
+
+    private fun createGroup() {
+        viewModelScope.launch {
+            val userId = firebaseAuth.currentUser?.uid
+            if (userId == null) {
+                _uiState.update { it.copy(errorMessage = "로그인이 필요합니다") }
+                return@launch
+            }
+
+            _uiState.update { it.copy(isLoading = true) }
+
+            val state = _uiState.value
+            val result = createGroupUseCase(
+                userId = userId,
+                name = state.name,
+                description = state.description,
+                imageUri = state.imageUri,
+                isPrivate = state.isPrivate,
+                password = state.password
+            )
+
+            result.fold(
+                onSuccess = { groupId ->
+                    _uiState.update { it.copy(isLoading = false) }
+                    _sideEffect.emit(GroupCreateContract.SideEffect.NavigateToGroup(groupId))
+                },
+                onFailure = { e ->
+                    _uiState.update { it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "그룹 생성에 실패했습니다"
+                    )}
+                }
+            )
+        }
+    }
+}

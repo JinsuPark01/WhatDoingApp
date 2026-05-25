@@ -5,6 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.whatdoing.ui.screen.auth.LoginScreen
+import com.example.whatdoing.ui.screen.group.GroupCreateScreen
 import com.example.whatdoing.ui.screen.home.HomeScreen
 
 @Composable
@@ -39,7 +40,14 @@ fun NavGraph(navController: NavHostController) {
             // TODO MyPageScreen()
         }
         composable(Screen.GroupCreate.route) {
-            // TODO GroupCreateScreen()
+            GroupCreateScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToGroup = { groupId ->
+                    navController.navigate(Screen.GroupDetail.createRoute(groupId)) {
+                        popUpTo(Screen.Home.route)
+                    }
+                }
+            )
         }
         composable(Screen.GroupJoin.route) {
             // TODO GroupJoinScreen()
