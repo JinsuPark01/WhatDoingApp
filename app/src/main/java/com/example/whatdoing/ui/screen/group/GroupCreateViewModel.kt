@@ -3,7 +3,6 @@ package com.example.whatdoing.ui.screen.group
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.whatdoing.domain.usecase.CreateGroupUseCase
-import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,8 +14,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class GroupCreateViewModel @Inject constructor(
-    private val createGroupUseCase: CreateGroupUseCase,
-    private val firebaseAuth: FirebaseAuth
+    private val createGroupUseCase: CreateGroupUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupCreateContract.UiState())
@@ -54,17 +52,10 @@ class GroupCreateViewModel @Inject constructor(
 
     private fun createGroup() {
         viewModelScope.launch {
-            val userId = firebaseAuth.currentUser?.uid
-            if (userId == null) {
-                _uiState.update { it.copy(errorMessage = "로그인이 필요합니다") }
-                return@launch
-            }
-
             _uiState.update { it.copy(isLoading = true) }
 
             val state = _uiState.value
             val result = createGroupUseCase(
-                userId = userId,
                 name = state.name,
                 description = state.description,
                 imageUri = state.imageUri,

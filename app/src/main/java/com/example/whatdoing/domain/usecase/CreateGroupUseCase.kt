@@ -1,25 +1,31 @@
 package com.example.whatdoing.domain.usecase
 
 import android.net.Uri
+import com.example.whatdoing.domain.repository.AuthRepository
 import com.example.whatdoing.domain.repository.GroupRepository
 import javax.inject.Inject
 
 class CreateGroupUseCase @Inject constructor(
-    private val groupRepository: GroupRepository
+    private val groupRepository: GroupRepository,
+    private val authRepository: AuthRepository
 ) {
     suspend operator fun invoke(
-        userId: String,
         name: String,
         description: String,
         imageUri: Uri?,
         isPrivate: Boolean,
         password: String
-    ): Result<String> = groupRepository.createGroup(
-        userId = userId,
-        name = name,
-        description = description,
-        imageUri = imageUri,
-        isPrivate = isPrivate,
-        password = password
-    )
+    ): Result<String> {
+        val userId = authRepository.getCurrentUserId()
+            ?: return Result.failure(Exception("로그인이 필요합니다"))
+
+        return groupRepository.createGroup(
+            userId = userId,
+            name = name,
+            description = description,
+            imageUri = imageUri,
+            isPrivate = isPrivate,
+            password = password
+        )
+    }
 }
