@@ -6,6 +6,7 @@ import com.example.whatdoing.domain.repository.GroupRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
+ import java.util.UUID
 import javax.inject.Inject
 
 class GroupRepositoryImpl @Inject constructor(
@@ -40,20 +41,19 @@ class GroupRepositoryImpl @Inject constructor(
         userId: String,
         name: String,
         description: String,
-        imageUri: Uri?,
+        imageUri: String?,
         isPrivate: Boolean,
         password: String
     ): Result<String> {
         return try {
-            // 1. 이미지 업로드 (있을 때만)
-            val imageUrl = imageUri?.let {
-                val ref = storage.reference
-                    .child("groups/${System.currentTimeMillis()}.jpg")
-                ref.putFile(it).await()
+            val imageUrl = imageUri?.let { uriString ->
+                val uri = Uri.parse(uriString)
+                val fileName = "${UUID.randomUUID()}.jpg"
+                val ref = storage.reference.child("groups/$fileName")
+                ref.putFile(uri).await()
                 ref.downloadUrl.await().toString()
             } ?: ""
 
-            // 2. Firestore에 그룹 정보 저장
             val groupData = hashMapOf(
                 "name" to name,
                 "description" to description,
@@ -69,6 +69,31 @@ class GroupRepositoryImpl @Inject constructor(
                 .await()
 
             Result.success(docRef.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getGroupById(groupId: String): Result<Group> {
+        return try {
+            val doc = firestore.collection("groups")
+                .document(groupId)
+                .get()
+                .await()
+
+            if (!doc.exists()) {
+                return Result.failure(Exception("그룹을 찾을 수 없습니다"))
+            }
+
+            val group = Group(
+                id = doc.id,
+                name = doc.getString("name") ?: "",
+                description = doc.getString("description") ?: "",
+                imageUrl = doc.getString("imageUrl") ?: "",
+                isPrivate = doc.getBoolean("isPrivate") ?: false,
+                memberCount = ((doc.get("members") as? List<*>)?.size) ?: 0
+            )
+            Result.success(group)
         } catch (e: Exception) {
             Result.failure(e)
         }

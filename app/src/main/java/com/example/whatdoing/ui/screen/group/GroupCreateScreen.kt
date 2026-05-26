@@ -59,7 +59,7 @@ private fun GroupCreateContent(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        onIntent(GroupCreateContract.Intent.UpdateImage(uri))
+        onIntent(GroupCreateContract.Intent.UpdateImage(uri?.toString()))  // String으로 변환
     }
 
     Scaffold(

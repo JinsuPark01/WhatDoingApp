@@ -12,7 +12,7 @@ class CreateGroupUseCase @Inject constructor(
     suspend operator fun invoke(
         name: String,
         description: String,
-        imageUri: Uri?,
+        imageUri: String?,  // String으로 변경
         isPrivate: Boolean,
         password: String
     ): Result<String> {
