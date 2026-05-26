@@ -6,8 +6,9 @@ import com.example.whatdoing.domain.repository.GroupRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
- import java.util.UUID
+import java.util.UUID
 import javax.inject.Inject
+import com.example.whatdoing.data.mapper.toGroup
 
 class GroupRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
@@ -21,16 +22,7 @@ class GroupRepositoryImpl @Inject constructor(
                 .get()
                 .await()
 
-            val groups = snapshot.documents.mapNotNull { doc ->
-                Group(
-                    id = doc.id,
-                    name = doc.getString("name") ?: return@mapNotNull null,
-                    description = doc.getString("description") ?: "",
-                    imageUrl = doc.getString("imageUrl") ?: "",
-                    isPrivate = doc.getBoolean("isPrivate") ?: false,
-                    memberCount = ((doc.get("members") as? List<*>)?.size) ?: 0
-                )
-            }
+            val groups = snapshot.documents.mapNotNull { it.toGroup() }
             Result.success(groups)
         } catch (e: Exception) {
             Result.failure(e)
@@ -85,14 +77,9 @@ class GroupRepositoryImpl @Inject constructor(
                 return Result.failure(Exception("그룹을 찾을 수 없습니다"))
             }
 
-            val group = Group(
-                id = doc.id,
-                name = doc.getString("name") ?: "",
-                description = doc.getString("description") ?: "",
-                imageUrl = doc.getString("imageUrl") ?: "",
-                isPrivate = doc.getBoolean("isPrivate") ?: false,
-                memberCount = ((doc.get("members") as? List<*>)?.size) ?: 0
-            )
+            val group = doc.toGroup()
+                ?: return Result.failure(Exception("그룹 정보가 올바르지 않습니다"))
+
             Result.success(group)
         } catch (e: Exception) {
             Result.failure(e)

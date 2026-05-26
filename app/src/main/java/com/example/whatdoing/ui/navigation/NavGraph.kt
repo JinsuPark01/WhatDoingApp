@@ -2,10 +2,13 @@ package com.example.whatdoing.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.whatdoing.ui.screen.auth.LoginScreen
 import com.example.whatdoing.ui.screen.group.GroupCreateScreen
+import com.example.whatdoing.ui.screen.group.GroupDetailScreen
 import com.example.whatdoing.ui.screen.home.HomeScreen
 
 @Composable
@@ -52,8 +55,21 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.GroupJoin.route) {
             // TODO GroupJoinScreen()
         }
-        composable(Screen.GroupDetail.route) {
-            // TODO GroupDetailScreen()
+        composable(
+            route = Screen.GroupDetail.route,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+
+            GroupDetailScreen(
+                groupId = groupId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRecord = { gId ->
+                    navController.navigate(Screen.WriteRecord.route + "?groupId=$gId")
+                }
+            )
         }
     }
 }
