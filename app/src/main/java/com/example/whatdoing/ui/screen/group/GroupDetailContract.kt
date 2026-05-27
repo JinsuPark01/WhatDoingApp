@@ -22,5 +22,6 @@ object GroupDetailContract {
 
     sealed interface SideEffect {
         data class NavigateToRecord(val groupId: String) : SideEffect
+        data class ShowToast(val message: String) : SideEffect
     }
 }

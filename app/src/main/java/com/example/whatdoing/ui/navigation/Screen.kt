@@ -13,7 +13,9 @@ sealed class Screen(val route: String) {
 
     // 그룹
     object GroupCreate : Screen("group_create")
-    object GroupJoin : Screen("group_join")
+    object GroupJoin : Screen("group_join/{groupId}") {
+        fun createRoute(groupId: String) = "group_join/$groupId"
+    }
     object GroupDetail : Screen("group_detail/{groupId}") {
         fun createRoute(groupId: String) = "group_detail/$groupId"
     }

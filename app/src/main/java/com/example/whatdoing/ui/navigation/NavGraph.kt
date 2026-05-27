@@ -6,9 +6,11 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.example.whatdoing.ui.screen.auth.LoginScreen
 import com.example.whatdoing.ui.screen.group.GroupCreateScreen
 import com.example.whatdoing.ui.screen.group.GroupDetailScreen
+import com.example.whatdoing.ui.screen.group.GroupJoinScreen
 import com.example.whatdoing.ui.screen.home.HomeScreen
 import com.example.whatdoing.ui.screen.record.RecordScreen
 
@@ -62,8 +64,27 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
         }
-        composable(Screen.GroupJoin.route) {
-            // TODO GroupJoinScreen()
+        composable(
+            route = Screen.GroupJoin.route,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType }
+            ),
+            deepLinks = listOf(
+                navDeepLink {
+                    uriPattern = "helpmuta://group/{groupId}"
+                }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            GroupJoinScreen(
+                groupId = groupId,
+                onNavigateToGroup = { gId ->
+                    navController.navigate(Screen.GroupDetail.createRoute(gId)) {
+                        popUpTo(Screen.Home.route)
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         composable(
             route = Screen.GroupDetail.route,

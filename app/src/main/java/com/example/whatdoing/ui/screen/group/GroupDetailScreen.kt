@@ -2,16 +2,21 @@
 
 package com.example.whatdoing.ui.screen.group
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,6 +34,8 @@ fun GroupDetailScreen(
     onNavigateToRecord: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
 
     LaunchedEffect(groupId) {
         viewModel.handleIntent(GroupDetailContract.Intent.LoadGroupDetail(groupId))
@@ -38,6 +45,9 @@ fun GroupDetailScreen(
         viewModel.sideEffect.collect { effect ->
             when (effect) {
                 is GroupDetailContract.SideEffect.NavigateToRecord -> onNavigateToRecord(effect.groupId)
+                is GroupDetailContract.SideEffect.ShowToast -> {
+                    Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -45,7 +55,12 @@ fun GroupDetailScreen(
     GroupDetailContent(
         uiState = uiState,
         onIntent = viewModel::handleIntent,
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
+        onCopyInviteCode = {
+            val inviteLink = "helpmuta://group/$groupId"
+            clipboardManager.setText(AnnotatedString(inviteLink))
+            Toast.makeText(context, "초대 링크를 복사했어요!", Toast.LENGTH_SHORT).show()
+        }
     )
 }
 
@@ -53,7 +68,8 @@ fun GroupDetailScreen(
 private fun GroupDetailContent(
     uiState: GroupDetailContract.UiState,
     onIntent: (GroupDetailContract.Intent) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onCopyInviteCode: () -> Unit  // 추가
 ) {
     Scaffold(
         topBar = {
@@ -65,6 +81,17 @@ private fun GroupDetailContent(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "뒤로가기"
                         )
+                    }
+                },
+                actions = {
+                    // 그룹 정보가 있을 때만 초대 버튼 표시
+                    if (uiState.group != null) {
+                        IconButton(onClick = onCopyInviteCode) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = "초대 코드 복사"
+                            )
+                        }
                     }
                 }
             )
@@ -194,7 +221,8 @@ private fun GroupDetailContentPreview() {
         GroupDetailContent(
             uiState = dummyState,
             onIntent = {},
-            onNavigateBack = {}
+            onNavigateBack = {},
+            onCopyInviteCode = {}
         )
     }
 }

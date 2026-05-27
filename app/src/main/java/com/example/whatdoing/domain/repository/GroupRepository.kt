@@ -14,4 +14,6 @@ interface GroupRepository {
         description: String,
         imageUri: String?
     ): Result<String>
+
+    suspend fun joinGroup(groupId: String, userId: String): Result<Boolean>
 }

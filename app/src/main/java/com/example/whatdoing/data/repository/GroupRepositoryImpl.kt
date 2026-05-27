@@ -9,6 +9,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
 import com.example.whatdoing.data.mapper.toGroup
+import com.google.firebase.firestore.FieldValue
 
 class GroupRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
@@ -77,6 +78,28 @@ class GroupRepositoryImpl @Inject constructor(
                 ?: return Result.failure(Exception("그룹 정보가 올바르지 않습니다"))
 
             Result.success(group)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun joinGroup(groupId: String, userId: String): Result<Boolean> {
+        return try {
+            val docRef = firestore.collection("groups").document(groupId)
+
+            val doc = docRef.get().await()
+            if (!doc.exists()) {
+                return Result.failure(Exception("존재하지 않는 그룹입니다"))
+            }
+
+            // 가입 전 멤버였는지 확인
+            val wasAlreadyMember = (doc.get("members") as? List<*>)
+                ?.contains(userId) ?: false
+
+            docRef.update("members", FieldValue.arrayUnion(userId)).await()
+
+            // true = 새로 가입됨, false = 이미 멤버였음
+            Result.success(!wasAlreadyMember)
         } catch (e: Exception) {
             Result.failure(e)
         }
