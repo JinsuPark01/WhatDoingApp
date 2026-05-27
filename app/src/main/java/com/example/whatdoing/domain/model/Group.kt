@@ -5,6 +5,5 @@ data class Group(
     val name: String,
     val description: String = "",
     val imageUrl: String = "",
-    val isPrivate: Boolean = false,
     val memberCount: Int
 )

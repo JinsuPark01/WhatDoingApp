@@ -9,7 +9,6 @@ fun DocumentSnapshot.toGroup(): Group? {
         name = getString("name") ?: return null,
         description = getString("description").orEmpty(),
         imageUrl = getString("imageUrl").orEmpty(),
-        isPrivate = getBoolean("isPrivate") ?: false,
         memberCount = ((get("members") as? List<*>)?.size) ?: 0
     )
 }

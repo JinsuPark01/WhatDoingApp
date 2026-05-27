@@ -37,20 +37,13 @@ class GroupCreateViewModel @Inject constructor(
             is GroupCreateContract.Intent.UpdateImage -> {
                 _uiState.update { it.copy(imageUri = intent.uri) }
             }
-            is GroupCreateContract.Intent.UpdatePrivate -> {
-                _uiState.update { it.copy(
-                    isPrivate = intent.isPrivate,
-                    password = if (!intent.isPrivate) "" else it.password
-                )}
-            }
-            is GroupCreateContract.Intent.UpdatePassword -> {
-                _uiState.update { it.copy(password = intent.password) }
-            }
             GroupCreateContract.Intent.SubmitCreate -> createGroup()
         }
     }
 
     private fun createGroup() {
+        if (_uiState.value.isLoading) return
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
@@ -58,9 +51,7 @@ class GroupCreateViewModel @Inject constructor(
             val result = createGroupUseCase(
                 name = state.name,
                 description = state.description,
-                imageUri = state.imageUri,
-                isPrivate = state.isPrivate,
-                password = state.password
+                imageUri = state.imageUri
             )
 
             result.fold(

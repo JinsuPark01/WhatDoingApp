@@ -140,41 +140,6 @@ private fun GroupCreateContent(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // 공개/비공개 토글
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "비공개 그룹",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = "비밀번호를 아는 사람만 가입 가능",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = uiState.isPrivate,
-                    onCheckedChange = {
-                        onIntent(GroupCreateContract.Intent.UpdatePrivate(it))
-                    }
-                )
-            }
-
-            // 비밀번호 (비공개일 때만)
-            if (uiState.isPrivate) {
-                OutlinedTextField(
-                    value = uiState.password,
-                    onValueChange = { onIntent(GroupCreateContract.Intent.UpdatePassword(it)) },
-                    label = { Text("비밀번호") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
             // 에러 메시지
             uiState.errorMessage?.let {
                 Text(

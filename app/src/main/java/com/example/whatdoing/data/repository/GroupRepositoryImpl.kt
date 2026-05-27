@@ -33,9 +33,7 @@ class GroupRepositoryImpl @Inject constructor(
         userId: String,
         name: String,
         description: String,
-        imageUri: String?,
-        isPrivate: Boolean,
-        password: String
+        imageUri: String?
     ): Result<String> {
         return try {
             val imageUrl = imageUri?.let { uriString ->
@@ -50,8 +48,6 @@ class GroupRepositoryImpl @Inject constructor(
                 "name" to name,
                 "description" to description,
                 "imageUrl" to imageUrl,
-                "isPrivate" to isPrivate,
-                "password" to if (isPrivate) password else "",
                 "members" to listOf(userId),
                 "createdAt" to System.currentTimeMillis()
             )

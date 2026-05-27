@@ -12,8 +12,6 @@ interface GroupRepository {
         userId: String,
         name: String,
         description: String,
-        imageUri: String?,  // String으로 변경
-        isPrivate: Boolean,
-        password: String
+        imageUri: String?
     ): Result<String>
 }

@@ -12,9 +12,7 @@ class CreateGroupUseCase @Inject constructor(
     suspend operator fun invoke(
         name: String,
         description: String,
-        imageUri: String?,  // String으로 변경
-        isPrivate: Boolean,
-        password: String
+        imageUri: String?
     ): Result<String> {
         val userId = authRepository.getCurrentUserId()
             ?: return Result.failure(Exception("로그인이 필요합니다"))
@@ -23,9 +21,7 @@ class CreateGroupUseCase @Inject constructor(
             userId = userId,
             name = name,
             description = description,
-            imageUri = imageUri,
-            isPrivate = isPrivate,
-            password = password
+            imageUri = imageUri
         )
     }
 }
