@@ -31,4 +31,10 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override fun getCurrentUserId(): String? = firebaseAuth.currentUser?.uid
+
+    override fun getCurrentUserName(): String? {
+        val user = firebaseAuth.currentUser ?: return null
+        // displayName이 없으면 email의 @ 앞부분 사용
+        return user.displayName ?: user.email?.substringBefore("@")
+    }
 }

@@ -6,7 +6,9 @@ sealed class Screen(val route: String) {
 
     // 메인
     object Home : Screen("home")
-    object WriteRecord : Screen("write_record")
+    object WriteRecord : Screen("record/{groupId}") {
+        fun createRoute(groupId: String) = "record/$groupId"
+    }
     object MyPage : Screen("mypage")
 
     // 그룹

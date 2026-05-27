@@ -37,12 +37,13 @@ class GroupDetailViewModel @Inject constructor(
     }
 
     private fun loadGroupDetail(groupId: String) {
-        if (_uiState.value.groupId == groupId && _uiState.value.group != null) return
+        val currentState = _uiState.value
+        val isSameGroup = currentState.groupId == groupId && currentState.group != null
 
         viewModelScope.launch {
             // 3번 - 이전 에러 메시지 초기화
             _uiState.update { it.copy(
-                isLoading = true,
+                isLoading = !isSameGroup,  // 같은 그룹이면 로딩 표시 안 함
                 groupId = groupId,
                 errorMessage = null,
                 recordsErrorMessage = null
@@ -50,34 +51,50 @@ class GroupDetailViewModel @Inject constructor(
 
             // 2번 - supervisorScope로 변경 (하나 실패해도 다른 거 진행)
             supervisorScope {
-                val groupDeferred = async { getGroupDetailUseCase(groupId) }
+                // 같은 그룹이면 그룹 정보는 캐시 사용, 아니면 새로 가져옴
+                val groupDeferred = if (isSameGroup) {
+                    null
+                } else {
+                    async { getGroupDetailUseCase(groupId) }
+                }
                 val recordsDeferred = async { getRecordsByGroupUseCase(groupId) }
                 val wroteDeferred = async { hasWroteTodayUseCase(groupId) }
 
-                val groupResult = groupDeferred.await()
+                val groupResult = groupDeferred?.await()
                 val recordsResult = recordsDeferred.await()
                 val wroteResult = wroteDeferred.await()
 
-                groupResult.fold(
-                    onSuccess = { group ->
-                        _uiState.update { it.copy(
-                            isLoading = false,
-                            group = group,
-                            records = recordsResult.getOrDefault(emptyList()),
-                            // 4번 - isFailure로 명확하게
-                            recordsErrorMessage = if (recordsResult.isFailure) {
-                                "기록을 불러오지 못했습니다"
-                            } else null,
-                            hasWroteToday = wroteResult.getOrDefault(false)
-                        )}
-                    },
-                    onFailure = { e ->
-                        _uiState.update { it.copy(
-                            isLoading = false,
-                            errorMessage = e.message ?: "그룹을 불러올 수 없습니다"
-                        )}
-                    }
-                )
+                if (isSameGroup) {
+                    // 그룹 정보는 그대로 두고 records랑 hasWroteToday만 업데이트
+                    _uiState.update { it.copy(
+                        isLoading = false,
+                        records = recordsResult.getOrDefault(emptyList()),
+                        recordsErrorMessage = if (recordsResult.isFailure) {
+                            "기록을 불러오지 못했습니다"
+                        } else null,
+                        hasWroteToday = wroteResult.getOrDefault(false)
+                    )}
+                } else {
+                    groupResult?.fold(
+                        onSuccess = { group ->
+                            _uiState.update { it.copy(
+                                isLoading = false,
+                                group = group,
+                                records = recordsResult.getOrDefault(emptyList()),
+                                recordsErrorMessage = if (recordsResult.isFailure) {
+                                    "기록을 불러오지 못했습니다"
+                                } else null,
+                                hasWroteToday = wroteResult.getOrDefault(false)
+                            )}
+                        },
+                        onFailure = { e ->
+                            _uiState.update { it.copy(
+                                isLoading = false,
+                                errorMessage = e.message ?: "그룹을 불러올 수 없습니다"
+                            )}
+                        }
+                    )
+                }
             }
         }
     }

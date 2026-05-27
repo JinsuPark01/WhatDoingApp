@@ -10,6 +10,7 @@ import com.example.whatdoing.ui.screen.auth.LoginScreen
 import com.example.whatdoing.ui.screen.group.GroupCreateScreen
 import com.example.whatdoing.ui.screen.group.GroupDetailScreen
 import com.example.whatdoing.ui.screen.home.HomeScreen
+import com.example.whatdoing.ui.screen.record.RecordScreen
 
 @Composable
 fun NavGraph(navController: NavHostController) {
@@ -36,8 +37,17 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
         }
-        composable(Screen.WriteRecord.route) {
-            // TODO WriteRecordScreen()
+        composable(
+            route = Screen.WriteRecord.route,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            RecordScreen(
+                groupId = groupId,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         composable(Screen.MyPage.route) {
             // TODO MyPageScreen()
@@ -67,7 +77,7 @@ fun NavGraph(navController: NavHostController) {
                 groupId = groupId,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToRecord = { gId ->
-                    navController.navigate(Screen.WriteRecord.route + "?groupId=$gId")
+                    navController.navigate(Screen.WriteRecord.createRoute(gId))
                 }
             )
         }
