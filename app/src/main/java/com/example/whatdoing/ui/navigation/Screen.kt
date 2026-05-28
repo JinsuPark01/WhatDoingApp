@@ -3,6 +3,7 @@ package com.example.whatdoing.ui.navigation
 sealed class Screen(val route: String) {
     // 인증
     object Login : Screen("login")
+    object SignUp : Screen("signup")
 
     // 메인
     object Home : Screen("home")

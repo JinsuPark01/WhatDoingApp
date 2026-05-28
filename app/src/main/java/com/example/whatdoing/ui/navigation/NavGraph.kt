@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.example.whatdoing.ui.screen.auth.LoginScreen
+import com.example.whatdoing.ui.screen.auth.SignUpScreen
 import com.example.whatdoing.ui.screen.group.GroupCreateScreen
 import com.example.whatdoing.ui.screen.group.GroupDetailScreen
 import com.example.whatdoing.ui.screen.group.GroupJoinScreen
@@ -26,7 +27,20 @@ fun NavGraph(navController: NavHostController) {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
+                },
+                onNavigateToSignUp = {
+                    navController.navigate(Screen.SignUp.route)
                 }
+            )
+        }
+        composable(Screen.SignUp.route) {
+            SignUpScreen(
+                onNavigateToHome = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Home.route) {

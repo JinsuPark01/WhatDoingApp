@@ -18,7 +18,8 @@ import com.example.whatdoing.ui.theme.WhatDoingTheme
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
-    onNavigateToHome: () -> Unit
+    onNavigateToHome: () -> Unit,
+    onNavigateToSignUp: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -106,6 +107,11 @@ fun LoginScreen(
                 ) {
                     Text("로그인")
                 }
+            }
+            TextButton(
+                onClick = onNavigateToSignUp
+            ) {
+                Text("계정이 없으신가요? 회원가입")
             }
         }
     }
