@@ -68,4 +68,12 @@ class AuthRepositoryImpl @Inject constructor(
         // displayName이 없으면 email의 @ 앞부분 사용
         return user.displayName ?: user.email?.substringBefore("@")
     }
+
+    override fun getCurrentUserEmail(): String? {
+        return firebaseAuth.currentUser?.email
+    }
+
+    override fun logout() {
+        firebaseAuth.signOut()
+    }
 }

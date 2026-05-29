@@ -13,6 +13,7 @@ import com.example.whatdoing.ui.screen.group.GroupCreateScreen
 import com.example.whatdoing.ui.screen.group.GroupDetailScreen
 import com.example.whatdoing.ui.screen.group.GroupJoinScreen
 import com.example.whatdoing.ui.screen.home.HomeScreen
+import com.example.whatdoing.ui.screen.mypage.MyPageScreen
 import com.example.whatdoing.ui.screen.record.RecordScreen
 
 @Composable
@@ -50,6 +51,9 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onNavigateToCreateGroup = {
                     navController.navigate(Screen.GroupCreate.route)
+                },
+                onNavigateToMyPage = {
+                    navController.navigate(Screen.MyPage.route)
                 }
             )
         }
@@ -66,7 +70,16 @@ fun NavGraph(navController: NavHostController) {
             )
         }
         composable(Screen.MyPage.route) {
-            // TODO MyPageScreen()
+            MyPageScreen(
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            inclusive = true
+                        }
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         composable(Screen.GroupCreate.route) {
             GroupCreateScreen(

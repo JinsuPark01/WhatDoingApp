@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +25,8 @@ import com.example.whatdoing.ui.theme.WhatDoingTheme
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onNavigateToGroup: (String) -> Unit,
-    onNavigateToCreateGroup: () -> Unit
+    onNavigateToCreateGroup: () -> Unit,
+    onNavigateToMyPage: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -44,7 +46,8 @@ fun HomeScreen(
         },
         onCreateClick = {
             viewModel.handleIntent(HomeContract.Intent.NavigateToCreateGroup)
-        }
+        },
+        onMyPageClick = onNavigateToMyPage
     )
 }
 
@@ -52,12 +55,21 @@ fun HomeScreen(
 private fun HomeContent(
     uiState: HomeContract.UiState,
     onGroupClick: (String) -> Unit,
-    onCreateClick: () -> Unit
+    onCreateClick: () -> Unit,
+    onMyPageClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("헬품타") }
+                title = { Text("헬품타") },
+                actions = {
+                    IconButton(onClick = onMyPageClick) {
+                        Icon(
+                            Icons.Default.AccountCircle,
+                            contentDescription = "마이페이지"
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -132,7 +144,8 @@ private fun HomeContentPreview() {
         HomeContent(
             uiState = dummyState,
             onGroupClick = {},
-            onCreateClick = {}
+            onCreateClick = {},
+            onMyPageClick = {}
         )
     }
 }
@@ -144,7 +157,8 @@ private fun HomeContentEmptyPreview() {
         HomeContent(
             uiState = HomeContract.UiState(),
             onGroupClick = {},
-            onCreateClick = {}
+            onCreateClick = {},
+            onMyPageClick = {}
         )
     }
 }
