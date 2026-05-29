@@ -3,6 +3,7 @@ package com.example.whatdoing.data.repository
 import com.example.whatdoing.domain.model.User
 import com.example.whatdoing.domain.repository.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.userProfileChangeRequest
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -49,6 +50,24 @@ class AuthRepositoryImpl @Inject constructor(
                 displayName = nickname
             }
             firebaseUser.updateProfile(profileUpdate).await()
+
+            Result.success(
+                User(
+                    uid = firebaseUser.uid,
+                    email = firebaseUser.email ?: ""
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    override suspend fun googleLogin(idToken: String): Result<User> {
+        return try {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val result = firebaseAuth.signInWithCredential(credential).await()
+
+            val firebaseUser = result.user
+                ?: return Result.failure(Exception("구글 로그인에 실패했습니다"))
 
             Result.success(
                 User(

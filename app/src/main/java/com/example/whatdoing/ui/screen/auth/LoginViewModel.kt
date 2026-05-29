@@ -2,7 +2,9 @@ package com.example.whatdoing.ui.screen.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.whatdoing.data.auth.GoogleAuthClient
 import com.example.whatdoing.domain.usecase.EmailLoginUseCase
+import com.example.whatdoing.domain.usecase.GoogleLoginUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +16,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val emailLoginUseCase: EmailLoginUseCase
+    private val emailLoginUseCase: EmailLoginUseCase,
+    private val googleLoginUseCase: GoogleLoginUseCase,
+    private val googleAuthClient: GoogleAuthClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginContract.UiState())
@@ -26,32 +30,27 @@ class LoginViewModel @Inject constructor(
     fun handleIntent(intent: LoginContract.Intent) {
         when (intent) {
             is LoginContract.Intent.UpdateEmail -> {
-                _uiState.update { it.copy(
-                    email = intent.email,
-                    errorMessage = null
-                )}
+                _uiState.update { it.copy(email = intent.email, errorMessage = null) }
             }
             is LoginContract.Intent.UpdatePassword -> {
-                _uiState.update { it.copy(
-                    password = intent.password,
-                    errorMessage = null
-                )}
+                _uiState.update { it.copy(password = intent.password, errorMessage = null) }
             }
             LoginContract.Intent.GoogleLogin -> googleLogin()
             LoginContract.Intent.SubmitLogin -> emailLogin()
         }
     }
 
-    private fun googleLogin() {
-        // TODO
-    }
-
     private fun emailLogin() {
+        if (_uiState.value.isLoading) return
+
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(
+                isLoading = true,
+                errorMessage = null
+            )}
 
             val result = emailLoginUseCase(
-                email = _uiState.value.email,
+                email = _uiState.value.email.trim(),
                 password = _uiState.value.password
             )
 
@@ -64,6 +63,43 @@ class LoginViewModel @Inject constructor(
                     _uiState.update { it.copy(
                         isLoading = false,
                         errorMessage = e.message ?: "로그인에 실패했습니다"
+                    )}
+                }
+            )
+        }
+    }
+
+    private fun googleLogin() {
+        if (_uiState.value.isLoading) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            // 1단계: 구글한테 idToken 받기
+            val tokenResult = googleAuthClient.getIdToken()
+
+            tokenResult.fold(
+                onSuccess = { idToken ->
+                    // 2단계: idToken으로 Firebase 로그인
+                    val loginResult = googleLoginUseCase(idToken)
+
+                    loginResult.fold(
+                        onSuccess = {
+                            _uiState.update { it.copy(isLoading = false) }
+                            _sideEffect.emit(LoginContract.SideEffect.NavigateToHome)
+                        },
+                        onFailure = { e ->
+                            _uiState.update { it.copy(
+                                isLoading = false,
+                                errorMessage = e.message ?: "구글 로그인에 실패했습니다"
+                            )}
+                        }
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.update { it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "구글 계정을 가져올 수 없습니다"
                     )}
                 }
             )
