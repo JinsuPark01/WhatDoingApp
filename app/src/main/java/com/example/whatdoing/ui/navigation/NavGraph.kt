@@ -73,9 +73,10 @@ fun NavGraph(navController: NavHostController) {
             MyPageScreen(
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
-                        popUpTo(navController.graph.startDestinationId) {
+                        popUpTo(navController.graph.id) {
                             inclusive = true
                         }
+                        launchSingleTop = true
                     }
                 },
                 onNavigateBack = { navController.popBackStack() }
