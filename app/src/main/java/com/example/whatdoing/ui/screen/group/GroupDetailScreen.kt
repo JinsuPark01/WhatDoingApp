@@ -97,13 +97,28 @@ private fun GroupDetailContent(
             )
         },
         floatingActionButton = {
-            if (uiState.group != null && !uiState.hasWroteToday) {
+            if (uiState.group != null) {
                 FloatingActionButton(
                     onClick = {
-                        onIntent(GroupDetailContract.Intent.NavigateToRecord)
+                        if (!uiState.hasWroteToday) {
+                            onIntent(GroupDetailContract.Intent.NavigateToRecord)
+                        }
+                    },
+                    containerColor = if (uiState.hasWroteToday) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
+                    contentColor = if (uiState.hasWroteToday) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onPrimary
                     }
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = "오늘 기록 작성")
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = if (uiState.hasWroteToday) "오늘은 이미 작성했어요" else "오늘 기록 작성"
+                    )
                 }
             }
         }
