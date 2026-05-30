@@ -1,5 +1,6 @@
 package com.example.whatdoing.ui.screen.auth
 
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.whatdoing.data.auth.GoogleAuthClient
@@ -35,7 +36,7 @@ class LoginViewModel @Inject constructor(
             is LoginContract.Intent.UpdatePassword -> {
                 _uiState.update { it.copy(password = intent.password, errorMessage = null) }
             }
-            LoginContract.Intent.GoogleLogin -> googleLogin()
+            is LoginContract.Intent.GoogleLogin -> googleLogin(intent.activity)
             LoginContract.Intent.SubmitLogin -> emailLogin()
         }
     }
@@ -69,18 +70,16 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    private fun googleLogin() {
+    private fun googleLogin(activity: Activity) {
         if (_uiState.value.isLoading) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            // 1단계: 구글한테 idToken 받기
-            val tokenResult = googleAuthClient.getIdToken()
+            val tokenResult = googleAuthClient.getIdToken(activity)
 
             tokenResult.fold(
                 onSuccess = { idToken ->
-                    // 2단계: idToken으로 Firebase 로그인
                     val loginResult = googleLoginUseCase(idToken)
 
                     loginResult.fold(

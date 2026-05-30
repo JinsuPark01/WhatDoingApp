@@ -1,11 +1,13 @@
 package com.example.whatdoing.ui.screen.auth
 
+import android.app.Activity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -45,6 +47,9 @@ private fun LoginContent(
     onIntent: (LoginContract.Intent) -> Unit,
     onNavigateToSignUp: () -> Unit
 ) {
+    val context = LocalContext.current
+    val activity = context as Activity
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -124,7 +129,9 @@ private fun LoginContent(
 
             // 구글 로그인 버튼
             OutlinedButton(
-                onClick = { onIntent(LoginContract.Intent.GoogleLogin) },
+                onClick = {
+                    onIntent(LoginContract.Intent.GoogleLogin(activity))  // context 전달
+                },
                 enabled = !uiState.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()

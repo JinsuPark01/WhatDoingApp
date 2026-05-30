@@ -1,3 +1,5 @@
+import android.app.Activity
+
 object LoginContract {
 
     data class UiState(
@@ -13,8 +15,8 @@ object LoginContract {
     sealed interface Intent {
         data class UpdateEmail(val email: String) : Intent
         data class UpdatePassword(val password: String) : Intent
-        data object GoogleLogin : Intent
         data object SubmitLogin : Intent
+        data class GoogleLogin(val activity: Activity) : Intent
     }
 
     sealed interface SideEffect {
