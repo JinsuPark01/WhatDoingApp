@@ -17,10 +17,13 @@ import com.example.whatdoing.ui.screen.mypage.MyPageScreen
 import com.example.whatdoing.ui.screen.record.RecordScreen
 
 @Composable
-fun NavGraph(navController: NavHostController) {
+fun NavGraph(
+    navController: NavHostController,
+    startDestination: String  // 추가
+) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route
+        startDestination = startDestination  // 변경
     ) {
         composable(Screen.Login.route) {
             LoginScreen(
