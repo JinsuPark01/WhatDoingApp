@@ -16,4 +16,5 @@ interface GroupRepository {
     ): Result<String>
 
     suspend fun joinGroup(groupId: String, userId: String): Result<Boolean>
+    suspend fun leaveGroup(groupId: String, userId: String): Result<Unit>
 }

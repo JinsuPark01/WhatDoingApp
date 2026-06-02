@@ -1,7 +1,9 @@
 package com.example.whatdoing.data.repository
 
+import com.example.whatdoing.domain.model.AuthProvider
 import com.example.whatdoing.domain.model.User
 import com.example.whatdoing.domain.repository.AuthRepository
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.userProfileChangeRequest
@@ -94,5 +96,53 @@ class AuthRepositoryImpl @Inject constructor(
 
     override fun logout() {
         firebaseAuth.signOut()
+    }
+
+    override fun getAuthProvider(): AuthProvider {
+        val user = firebaseAuth.currentUser ?: return AuthProvider.UNKNOWN
+        return when {
+            user.providerData.any { it.providerId == "google.com" } -> AuthProvider.GOOGLE
+            user.providerData.any { it.providerId == "password" } -> AuthProvider.EMAIL
+            else -> AuthProvider.UNKNOWN
+        }
+    }
+
+    override suspend fun reauthenticateWithPassword(password: String): Result<Unit> {
+        return try {
+            val user = firebaseAuth.currentUser
+                ?: return Result.failure(Exception("로그인 상태가 아닙니다"))
+            val email = user.email
+                ?: return Result.failure(Exception("이메일 정보를 가져올 수 없습니다"))
+
+            val credential = EmailAuthProvider.getCredential(email, password)
+            user.reauthenticate(credential).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun reauthenticateWithGoogle(idToken: String): Result<Unit> {
+        return try {
+            val user = firebaseAuth.currentUser
+                ?: return Result.failure(Exception("로그인 상태가 아닙니다"))
+
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            user.reauthenticate(credential).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteAccount(): Result<Unit> {
+        return try {
+            val user = firebaseAuth.currentUser
+                ?: return Result.failure(Exception("로그인 상태가 아닙니다"))
+            user.delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

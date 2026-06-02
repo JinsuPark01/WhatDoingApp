@@ -1,5 +1,6 @@
 package com.example.whatdoing.domain.repository
 
+import com.example.whatdoing.domain.model.AuthProvider
 import com.example.whatdoing.domain.model.User
 
 interface AuthRepository {
@@ -10,4 +11,8 @@ interface AuthRepository {
     fun getCurrentUserName(): String?
     fun getCurrentUserEmail(): String?
     fun logout()
+    fun getAuthProvider(): AuthProvider
+    suspend fun reauthenticateWithPassword(password: String): Result<Unit>
+    suspend fun reauthenticateWithGoogle(idToken: String): Result<Unit>
+    suspend fun deleteAccount(): Result<Unit>
 }

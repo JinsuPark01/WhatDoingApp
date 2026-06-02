@@ -15,4 +15,7 @@ interface RecordRepository {
         imageUri: String?,
         comment: String
     ): Result<String>
+
+    suspend fun getRecordsByUser(userId: String): Result<List<WorkoutRecord>>
+    suspend fun deleteRecordsByUserInGroup(groupId: String, userId: String): Result<Unit>
 }

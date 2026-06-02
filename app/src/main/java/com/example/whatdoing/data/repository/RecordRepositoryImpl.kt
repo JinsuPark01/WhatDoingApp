@@ -96,4 +96,47 @@ class RecordRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun getRecordsByUser(userId: String): Result<List<WorkoutRecord>> {
+        return try {
+            val snapshot = firestore.collection("records")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+
+            val records = snapshot.documents.mapNotNull { it.toWorkoutRecord() }
+            Result.success(records)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteRecordsByUserInGroup(
+        groupId: String,
+        userId: String
+    ): Result<Unit> {
+        return try {
+            val snapshot = firestore.collection("records")
+                .whereEqualTo("groupId", groupId)
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+
+            for (doc in snapshot.documents) {
+                // Storage 이미지 먼저 삭제
+                val imageUrl = doc.getString("imageUrl") ?: ""
+                if (imageUrl.isNotBlank()) {
+                    runCatching {
+                        storage.getReferenceFromUrl(imageUrl).delete().await()
+                    }
+                }
+                // Firestore 문서 삭제
+                doc.reference.delete().await()
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

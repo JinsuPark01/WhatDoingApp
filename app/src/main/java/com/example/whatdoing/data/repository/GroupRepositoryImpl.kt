@@ -104,4 +104,38 @@ class GroupRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun leaveGroup(groupId: String, userId: String): Result<Unit> {
+        return try {
+            val docRef = firestore.collection("groups").document(groupId)
+            val doc = docRef.get().await()
+
+            if (!doc.exists()) {
+                // 이미 없는 그룹이면 성공 처리 (멱등성)
+                return Result.success(Unit)
+            }
+
+            val members = (doc.get("members") as? List<*>)?.filterIsInstance<String>()
+                ?: emptyList()
+            val remaining = members.filter { it != userId }
+
+            if (remaining.isEmpty()) {
+                // 마지막 멤버 → 그룹 자체 삭제 + 그룹 이미지 삭제
+                val imageUrl = doc.getString("imageUrl") ?: ""
+                if (imageUrl.isNotBlank()) {
+                    runCatching {
+                        storage.getReferenceFromUrl(imageUrl).delete().await()
+                    }
+                }
+                docRef.delete().await()
+            } else {
+                // 멤버 남아있음 → 배열에서 본인만 제거
+                docRef.update("members", FieldValue.arrayRemove(userId)).await()
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
