@@ -130,6 +130,11 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToRecord = { gId ->
                     navController.navigate(Screen.WriteRecord.createRoute(gId))
+                },
+                onNavigateToHome = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                    }
                 }
             )
         }

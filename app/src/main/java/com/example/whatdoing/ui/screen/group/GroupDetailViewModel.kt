@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.whatdoing.domain.usecase.GetGroupDetailUseCase
 import com.example.whatdoing.domain.usecase.GetRecordsByGroupUseCase
 import com.example.whatdoing.domain.usecase.HasWroteTodayUseCase
+import com.example.whatdoing.domain.usecase.LeaveGroupUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -20,7 +21,8 @@ import javax.inject.Inject
 class GroupDetailViewModel @Inject constructor(
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
     private val getRecordsByGroupUseCase: GetRecordsByGroupUseCase,
-    private val hasWroteTodayUseCase: HasWroteTodayUseCase
+    private val hasWroteTodayUseCase: HasWroteTodayUseCase,
+    private val leaveGroupUseCase: LeaveGroupUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupDetailContract.UiState())
@@ -33,6 +35,7 @@ class GroupDetailViewModel @Inject constructor(
         when (intent) {
             is GroupDetailContract.Intent.LoadGroupDetail -> loadGroupDetail(intent.groupId)
             GroupDetailContract.Intent.NavigateToRecord -> navigateToRecord()
+            GroupDetailContract.Intent.LeaveGroup -> leaveGroup()
         }
     }
 
@@ -105,6 +108,29 @@ class GroupDetailViewModel @Inject constructor(
 
         viewModelScope.launch {
             _sideEffect.emit(GroupDetailContract.SideEffect.NavigateToRecord(groupId))
+        }
+    }
+
+    private fun leaveGroup() {
+        val groupId = _uiState.value.groupId
+        if (groupId.isBlank()) return
+        if (_uiState.value.isLeaving) return   // 중복 방어
+
+        _uiState.update { it.copy(isLeaving = true) }
+
+        viewModelScope.launch {
+            leaveGroupUseCase(groupId).fold(
+                onSuccess = {
+                    _uiState.update { it.copy(isLeaving = false) }
+                    _sideEffect.emit(GroupDetailContract.SideEffect.NavigateToHome)
+                },
+                onFailure = {
+                    _uiState.update { it.copy(isLeaving = false) }
+                    _sideEffect.emit(
+                        GroupDetailContract.SideEffect.ShowToast("그룹 나가기에 실패했어요. 다시 시도해주세요.")
+                    )
+                }
+            )
         }
     }
 }

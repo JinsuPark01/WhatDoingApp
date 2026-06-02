@@ -8,7 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +33,8 @@ fun GroupDetailScreen(
     groupId: String,
     viewModel: GroupDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToRecord: (String) -> Unit
+    onNavigateToRecord: (String) -> Unit,
+    onNavigateToHome: () -> Unit   // 추가
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -48,6 +51,7 @@ fun GroupDetailScreen(
                 is GroupDetailContract.SideEffect.ShowToast -> {
                     Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
                 }
+                GroupDetailContract.SideEffect.NavigateToHome -> onNavigateToHome()   // 추가
             }
         }
     }
@@ -69,8 +73,11 @@ private fun GroupDetailContent(
     uiState: GroupDetailContract.UiState,
     onIntent: (GroupDetailContract.Intent) -> Unit,
     onNavigateBack: () -> Unit,
-    onCopyInviteCode: () -> Unit  // 추가
+    onCopyInviteCode: () -> Unit
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showLeaveDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -84,12 +91,42 @@ private fun GroupDetailContent(
                     }
                 },
                 actions = {
-                    // 그룹 정보가 있을 때만 초대 버튼 표시
                     if (uiState.group != null) {
-                        IconButton(onClick = onCopyInviteCode) {
+                        IconButton(onClick = { menuExpanded = true }) {
                             Icon(
-                                Icons.Default.Share,
-                                contentDescription = "초대 코드 복사"
+                                Icons.Default.MoreVert,
+                                contentDescription = "메뉴"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("초대 코드 복사") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onCopyInviteCode()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Share, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text("그룹 나가기", color = MaterialTheme.colorScheme.error)
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    showLeaveDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Logout,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             )
                         }
                     }
@@ -193,6 +230,29 @@ private fun GroupDetailContent(
                 }
             }
         }
+    }
+
+    // 그룹 나가기 확인 다이얼로그
+    if (showLeaveDialog) {
+        AlertDialog(
+            onDismissRequest = { showLeaveDialog = false },
+            title = { Text("그룹 나가기") },
+            text = {
+                Text("그룹을 나가면 이 그룹에 작성한 내 기록과 사진이 모두 삭제되며 복구할 수 없어요. 정말 나가시겠어요?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLeaveDialog = false
+                        onIntent(GroupDetailContract.Intent.LeaveGroup)
+                    },
+                    enabled = !uiState.isLeaving
+                ) { Text("나가기", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveDialog = false }) { Text("취소") }
+            }
+        )
     }
 }
 
