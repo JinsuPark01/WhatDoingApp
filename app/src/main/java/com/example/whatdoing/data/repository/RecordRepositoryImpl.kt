@@ -17,10 +17,16 @@ class RecordRepositoryImpl @Inject constructor(
     private val storage: FirebaseStorage
 ) : RecordRepository {
 
-    override suspend fun getRecordsByGroup(groupId: String): Result<List<WorkoutRecord>> {
+    override suspend fun getRecordsByGroup(
+        groupId: String,
+        startMillis: Long,
+        endMillis: Long
+    ): Result<List<WorkoutRecord>> {
         return try {
             val snapshot = firestore.collection("records")
                 .whereEqualTo("groupId", groupId)
+                .whereGreaterThanOrEqualTo("createdAt", startMillis)
+                .whereLessThan("createdAt", endMillis)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()

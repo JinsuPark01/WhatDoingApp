@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import java.util.Calendar
+import java.util.TimeZone
 import javax.inject.Inject
 
 @HiltViewModel
@@ -36,31 +38,40 @@ class GroupDetailViewModel @Inject constructor(
             is GroupDetailContract.Intent.LoadGroupDetail -> loadGroupDetail(intent.groupId)
             GroupDetailContract.Intent.NavigateToRecord -> navigateToRecord()
             GroupDetailContract.Intent.LeaveGroup -> leaveGroup()
+            is GroupDetailContract.Intent.SelectDate -> {
+                val start = utcMillisToLocalStartOfDay(intent.utcMillis)
+                changeDate(start)
+            }
+            is GroupDetailContract.Intent.MoveDay -> {
+                val start = addDays(_uiState.value.selectedDate, intent.offset)
+                changeDate(start)
+            }
         }
     }
 
     private fun loadGroupDetail(groupId: String) {
         val currentState = _uiState.value
         val isSameGroup = currentState.groupId == groupId && currentState.group != null
+        val today = startOfDay(System.currentTimeMillis())
 
         viewModelScope.launch {
-            // 3번 - 이전 에러 메시지 초기화
             _uiState.update { it.copy(
-                isLoading = !isSameGroup,  // 같은 그룹이면 로딩 표시 안 함
+                isLoading = !isSameGroup,
                 groupId = groupId,
+                selectedDate = today,   // 진입 시 항상 오늘
                 errorMessage = null,
                 recordsErrorMessage = null
             )}
 
-            // 2번 - supervisorScope로 변경 (하나 실패해도 다른 거 진행)
             supervisorScope {
-                // 같은 그룹이면 그룹 정보는 캐시 사용, 아니면 새로 가져옴
                 val groupDeferred = if (isSameGroup) {
                     null
                 } else {
                     async { getGroupDetailUseCase(groupId) }
                 }
-                val recordsDeferred = async { getRecordsByGroupUseCase(groupId) }
+                val recordsDeferred = async {
+                    getRecordsByGroupUseCase(groupId, today, endOfDay(today))
+                }
                 val wroteDeferred = async { hasWroteTodayUseCase(groupId) }
 
                 val groupResult = groupDeferred?.await()
@@ -68,13 +79,10 @@ class GroupDetailViewModel @Inject constructor(
                 val wroteResult = wroteDeferred.await()
 
                 if (isSameGroup) {
-                    // 그룹 정보는 그대로 두고 records랑 hasWroteToday만 업데이트
                     _uiState.update { it.copy(
                         isLoading = false,
                         records = recordsResult.getOrDefault(emptyList()),
-                        recordsErrorMessage = if (recordsResult.isFailure) {
-                            "기록을 불러오지 못했습니다"
-                        } else null,
+                        recordsErrorMessage = if (recordsResult.isFailure) "기록을 불러오지 못했습니다" else null,
                         hasWroteToday = wroteResult.getOrDefault(false)
                     )}
                 } else {
@@ -84,9 +92,7 @@ class GroupDetailViewModel @Inject constructor(
                                 isLoading = false,
                                 group = group,
                                 records = recordsResult.getOrDefault(emptyList()),
-                                recordsErrorMessage = if (recordsResult.isFailure) {
-                                    "기록을 불러오지 못했습니다"
-                                } else null,
+                                recordsErrorMessage = if (recordsResult.isFailure) "기록을 불러오지 못했습니다" else null,
                                 hasWroteToday = wroteResult.getOrDefault(false)
                             )}
                         },
@@ -102,6 +108,29 @@ class GroupDetailViewModel @Inject constructor(
         }
     }
 
+    // 날짜 변경 공통 (달력/화살표 둘 다 여기로)
+    private fun changeDate(startMillis: Long) {
+        val groupId = _uiState.value.groupId
+        if (groupId.isBlank()) return
+
+        // 미래 차단: 오늘 이후로는 못 감
+        val today = startOfDay(System.currentTimeMillis())
+        if (startMillis > today) return
+
+        _uiState.update { it.copy(selectedDate = startMillis, recordsErrorMessage = null) }
+
+        viewModelScope.launch {
+            getRecordsByGroupUseCase(groupId, startMillis, endOfDay(startMillis)).fold(
+                onSuccess = { records ->
+                    _uiState.update { it.copy(records = records) }
+                },
+                onFailure = {
+                    _uiState.update { it.copy(recordsErrorMessage = "기록을 불러오지 못했습니다") }
+                }
+            )
+        }
+    }
+
     private fun navigateToRecord() {
         val groupId = _uiState.value.groupId
         if (groupId.isBlank()) return
@@ -114,7 +143,7 @@ class GroupDetailViewModel @Inject constructor(
     private fun leaveGroup() {
         val groupId = _uiState.value.groupId
         if (groupId.isBlank()) return
-        if (_uiState.value.isLeaving) return   // 중복 방어
+        if (_uiState.value.isLeaving) return
 
         _uiState.update { it.copy(isLeaving = true) }
 
@@ -132,5 +161,44 @@ class GroupDetailViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    // --- 날짜 헬퍼 ---
+
+    private fun startOfDay(millis: Long): Long =
+        Calendar.getInstance().apply {
+            timeInMillis = millis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+    private fun endOfDay(startMillis: Long): Long =
+        Calendar.getInstance().apply {
+            timeInMillis = startMillis
+            add(Calendar.DAY_OF_MONTH, 1)
+        }.timeInMillis
+
+    private fun addDays(startMillis: Long, offset: Int): Long =
+        Calendar.getInstance().apply {
+            timeInMillis = startMillis
+            add(Calendar.DAY_OF_MONTH, offset)
+        }.timeInMillis
+
+    // DatePicker가 준 UTC millis → 로컬 그 날짜의 00:00 (시간대 어긋남 방지)
+    private fun utcMillisToLocalStartOfDay(utcMillis: Long): Long {
+        val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            timeInMillis = utcMillis
+        }
+        return Calendar.getInstance().apply {
+            clear()
+            set(
+                utc.get(Calendar.YEAR),
+                utc.get(Calendar.MONTH),
+                utc.get(Calendar.DAY_OF_MONTH),
+                0, 0, 0
+            )
+        }.timeInMillis
     }
 }

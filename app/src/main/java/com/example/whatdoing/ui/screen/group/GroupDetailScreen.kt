@@ -3,11 +3,14 @@
 package com.example.whatdoing.ui.screen.group
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -27,6 +30,10 @@ import com.example.whatdoing.domain.model.Group
 import com.example.whatdoing.domain.model.WorkoutRecord
 import com.example.whatdoing.ui.screen.group.components.RecordCard
 import com.example.whatdoing.ui.theme.WhatDoingTheme
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun GroupDetailScreen(
@@ -34,7 +41,7 @@ fun GroupDetailScreen(
     viewModel: GroupDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToRecord: (String) -> Unit,
-    onNavigateToHome: () -> Unit   // 추가
+    onNavigateToHome: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -51,7 +58,7 @@ fun GroupDetailScreen(
                 is GroupDetailContract.SideEffect.ShowToast -> {
                     Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
                 }
-                GroupDetailContract.SideEffect.NavigateToHome -> onNavigateToHome()   // 추가
+                GroupDetailContract.SideEffect.NavigateToHome -> onNavigateToHome()
             }
         }
     }
@@ -77,6 +84,7 @@ private fun GroupDetailContent(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var showLeaveDialog by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -93,10 +101,7 @@ private fun GroupDetailContent(
                 actions = {
                     if (uiState.group != null) {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(
-                                Icons.Default.MoreVert,
-                                contentDescription = "메뉴"
-                            )
+                            Icon(Icons.Default.MoreVert, contentDescription = "메뉴")
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
@@ -113,9 +118,7 @@ private fun GroupDetailContent(
                                 }
                             )
                             DropdownMenuItem(
-                                text = {
-                                    Text("그룹 나가기", color = MaterialTheme.colorScheme.error)
-                                },
+                                text = { Text("그룹 나가기", color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     menuExpanded = false
                                     showLeaveDialog = true
@@ -167,11 +170,8 @@ private fun GroupDetailContent(
         ) {
             when {
                 uiState.isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-                // 그룹 자체를 못 불러온 경우만 전체 에러 화면
                 uiState.errorMessage != null -> {
                     Text(
                         text = uiState.errorMessage,
@@ -179,12 +179,20 @@ private fun GroupDetailContent(
                         color = MaterialTheme.colorScheme.error
                     )
                 }
-                // 그룹은 있을 때 → 기록 영역만 처리
                 uiState.group != null -> {
                     Column(modifier = Modifier.fillMaxSize()) {
+
+                        // 날짜 네비게이션 바
+                        DateNavigationBar(
+                            selectedDate = uiState.selectedDate,
+                            onPrevDay = { onIntent(GroupDetailContract.Intent.MoveDay(-1)) },
+                            onNextDay = { onIntent(GroupDetailContract.Intent.MoveDay(1)) },
+                            onDateClick = { showDatePicker = true }
+                        )
+                        HorizontalDivider()
+
                         when {
                             uiState.recordsErrorMessage != null -> {
-                                // 기록만 에러 카드로
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -206,7 +214,7 @@ private fun GroupDetailContent(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "아직 운동 기록이 없어요\n첫 번째 기록을 남겨보세요!",
+                                        text = "이 날에는 운동 기록이 없어요",
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -254,6 +262,93 @@ private fun GroupDetailContent(
             }
         )
     }
+
+    // 날짜 선택 달력
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = uiState.selectedDate.takeIf { it > 0L },
+            selectableDates = object : SelectableDates {
+                // 오늘(로컬 끝)까지만 선택 가능 — 미래 차단
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    return utcTimeMillis <= System.currentTimeMillis()
+                }
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        onIntent(GroupDetailContract.Intent.SelectDate(millis))
+                    }
+                    showDatePicker = false
+                }) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("취소") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@Composable
+private fun DateNavigationBar(
+    selectedDate: Long,
+    onPrevDay: () -> Unit,
+    onNextDay: () -> Unit,
+    onDateClick: () -> Unit
+) {
+    // 오늘이면 다음날(>) 비활성화
+    val isToday = isSameDay(selectedDate, System.currentTimeMillis())
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        IconButton(onClick = onPrevDay) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = "이전 날"
+            )
+        }
+
+        Text(
+            text = formatDate(selectedDate),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier
+                .clickable { onDateClick() }
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
+        IconButton(
+            onClick = onNextDay,
+            enabled = !isToday
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "다음 날"
+            )
+        }
+    }
+}
+
+private fun formatDate(millis: Long): String {
+    if (millis <= 0L) return ""
+    val sdf = SimpleDateFormat("yyyy.MM.dd", Locale.KOREA)
+    return sdf.format(Date(millis))
+}
+
+private fun isSameDay(a: Long, b: Long): Boolean {
+    if (a <= 0L) return false
+    val calA = Calendar.getInstance().apply { timeInMillis = a }
+    val calB = Calendar.getInstance().apply { timeInMillis = b }
+    return calA.get(Calendar.YEAR) == calB.get(Calendar.YEAR) &&
+            calA.get(Calendar.DAY_OF_YEAR) == calB.get(Calendar.DAY_OF_YEAR)
 }
 
 @Preview(showBackground = true, showSystemUi = true)
@@ -289,7 +384,8 @@ private fun GroupDetailContentPreview() {
                 createdAt = System.currentTimeMillis() - 3600000
             )
         ),
-        hasWroteToday = false
+        hasWroteToday = false,
+        selectedDate = System.currentTimeMillis()
     )
 
     WhatDoingTheme {
