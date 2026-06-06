@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.example.whatdoing.ui.screen.auth.LoginScreen
 import com.example.whatdoing.ui.screen.auth.SignUpScreen
+import com.example.whatdoing.ui.screen.extract.ExtractScreen
 import com.example.whatdoing.ui.screen.group.GroupCreateScreen
 import com.example.whatdoing.ui.screen.group.GroupDetailScreen
 import com.example.whatdoing.ui.screen.group.GroupJoinScreen
@@ -135,7 +136,25 @@ fun NavGraph(
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
+                },
+                onNavigateToExtract = { gId, date ->
+                    navController.navigate(Screen.Extract.createRoute(gId, date))
                 }
+            )
+        }
+        composable(
+            route = Screen.Extract.route,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType },
+                navArgument("dateMillis") { type = NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            val dateMillis = backStackEntry.arguments?.getLong("dateMillis") ?: return@composable
+            ExtractScreen(
+                groupId = groupId,
+                dateMillis = dateMillis,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

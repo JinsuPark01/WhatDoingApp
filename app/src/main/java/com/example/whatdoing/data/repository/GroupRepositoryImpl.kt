@@ -138,4 +138,18 @@ class GroupRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun getMemberIds(groupId: String): Result<List<String>> {
+        return try {
+            val doc = firestore.collection("groups").document(groupId).get().await()
+            if (!doc.exists()) {
+                return Result.failure(Exception("그룹을 찾을 수 없습니다"))
+            }
+            val members = (doc.get("members") as? List<*>)?.filterIsInstance<String>()
+                ?: emptyList()
+            Result.success(members)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

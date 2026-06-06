@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -41,7 +42,8 @@ fun GroupDetailScreen(
     viewModel: GroupDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToRecord: (String) -> Unit,
-    onNavigateToHome: () -> Unit
+    onNavigateToHome: () -> Unit,
+    onNavigateToExtract: (String, Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -71,7 +73,8 @@ fun GroupDetailScreen(
             val inviteLink = "helpmuta://group/$groupId"
             clipboardManager.setText(AnnotatedString(inviteLink))
             Toast.makeText(context, "초대 링크를 복사했어요!", Toast.LENGTH_SHORT).show()
-        }
+        },
+        onExtract = { onNavigateToExtract(groupId, uiState.selectedDate) }
     )
 }
 
@@ -80,7 +83,8 @@ private fun GroupDetailContent(
     uiState: GroupDetailContract.UiState,
     onIntent: (GroupDetailContract.Intent) -> Unit,
     onNavigateBack: () -> Unit,
-    onCopyInviteCode: () -> Unit
+    onCopyInviteCode: () -> Unit,
+    onExtract: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var showLeaveDialog by remember { mutableStateOf(false) }
@@ -107,6 +111,16 @@ private fun GroupDetailContent(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("사진 추출") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onExtract()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Image, contentDescription = null)
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("초대 코드 복사") },
                                 onClick = {
@@ -393,7 +407,8 @@ private fun GroupDetailContentPreview() {
             uiState = dummyState,
             onIntent = {},
             onNavigateBack = {},
-            onCopyInviteCode = {}
+            onCopyInviteCode = {},
+            onExtract = {}
         )
     }
 }
