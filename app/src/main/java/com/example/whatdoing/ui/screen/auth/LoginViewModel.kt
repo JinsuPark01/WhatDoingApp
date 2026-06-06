@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.whatdoing.data.auth.GoogleAuthClient
 import com.example.whatdoing.domain.usecase.EmailLoginUseCase
 import com.example.whatdoing.domain.usecase.GoogleLoginUseCase
+import com.example.whatdoing.domain.usecase.SaveUserUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,8 @@ import javax.inject.Inject
 class LoginViewModel @Inject constructor(
     private val emailLoginUseCase: EmailLoginUseCase,
     private val googleLoginUseCase: GoogleLoginUseCase,
-    private val googleAuthClient: GoogleAuthClient
+    private val googleAuthClient: GoogleAuthClient,
+    private val saveUserUseCase: SaveUserUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginContract.UiState())
@@ -84,6 +86,7 @@ class LoginViewModel @Inject constructor(
 
                     loginResult.fold(
                         onSuccess = {
+                            saveUserUseCase()   // 추가
                             _uiState.update { it.copy(isLoading = false) }
                             _sideEffect.emit(LoginContract.SideEffect.NavigateToHome)
                         },

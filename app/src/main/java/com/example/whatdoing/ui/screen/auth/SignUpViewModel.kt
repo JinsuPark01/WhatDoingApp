@@ -2,6 +2,7 @@ package com.example.whatdoing.ui.screen.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.whatdoing.domain.usecase.SaveUserUseCase
 import com.example.whatdoing.domain.usecase.SignUpUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SignUpViewModel @Inject constructor(
-    private val signUpUseCase: SignUpUseCase
+    private val signUpUseCase: SignUpUseCase,
+    private val saveUserUseCase: SaveUserUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SignUpContract.UiState())
@@ -56,8 +58,8 @@ class SignUpViewModel @Inject constructor(
 
             result.fold(
                 onSuccess = {
+                    saveUserUseCase()   // users 저장 (실패해도 흐름 진행)
                     _uiState.update { it.copy(isLoading = false) }
-                    // 4번 - 성공 토스트 추가
                     _sideEffect.emit(SignUpContract.SideEffect.ShowToast("회원가입이 완료됐어요!"))
                     _sideEffect.emit(SignUpContract.SideEffect.NavigateToHome)
                 },
