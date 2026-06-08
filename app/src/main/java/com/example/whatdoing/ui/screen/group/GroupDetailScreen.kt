@@ -30,6 +30,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.whatdoing.domain.model.Group
 import com.example.whatdoing.domain.model.WorkoutRecord
 import com.example.whatdoing.ui.screen.group.components.RecordCard
+import com.example.whatdoing.ui.theme.DisabledGray
+import com.example.whatdoing.ui.theme.OnDisabledGray
 import com.example.whatdoing.ui.theme.WhatDoingTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -159,12 +161,12 @@ private fun GroupDetailContent(
                         }
                     },
                     containerColor = if (uiState.hasWroteToday) {
-                        MaterialTheme.colorScheme.surfaceVariant
+                        DisabledGray
                     } else {
-                        MaterialTheme.colorScheme.primaryContainer
+                        MaterialTheme.colorScheme.primary
                     },
                     contentColor = if (uiState.hasWroteToday) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        OnDisabledGray
                     } else {
                         MaterialTheme.colorScheme.onPrimary
                     }

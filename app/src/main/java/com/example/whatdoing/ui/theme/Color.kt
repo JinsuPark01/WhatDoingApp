@@ -2,24 +2,22 @@ package com.example.whatdoing.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary - 다크 네이비
-val Navy80 = Color(0xFF1A2332)
-val Navy90 = Color(0xFF0D1621)
-val Navy40 = Color(0xFF3D5A80)
+// Primary - 헬품타 오렌지
+val Orange = Color(0xFFFD6F22)         // 주력 컬러
+val OrangeDark = Color(0xFFC85416)     // 어두운 톤
+val OrangeContainer = Color(0xFFFFE0CC) // 연한 주황
+val OnOrangeContainer = Color(0xFF5C2600)
 
-// Secondary - 블루
-val Blue80 = Color(0xFF4A90E2)
-val Blue90 = Color(0xFF2E5C8A)
-val Blue40 = Color(0xFF6FA8DC)
+// Beige - 배경/표면 계열
+val Beige = Color(0xFFF5EDE0)          // 기본 베이지 배경
+val BeigeLight = Color(0xFFFAF5EC)     // 더 밝은 표면
+val BeigeDark = Color(0xFFE8DCC8)      // 베이지 variant
+val BrownText = Color(0xFF3D3325)      // 베이지 위 글자 (진한 갈색)
+val BrownTextSoft = Color(0xFF6B5D4A)  // 보조 글자
 
-// Tertiary - 실버/그레이
-val Silver80 = Color(0xFFB8C5D6)
-val Silver90 = Color(0xFF8A9BAE)
-val Silver40 = Color(0xFFD8E1EB)
-
-// Background
-val DarkBackground = Color(0xFF0D1621)
-val DarkSurface = Color(0xFF1A2332)
+// 비활성화
+val DisabledGray = Color(0xFFECEAE8)
+val OnDisabledGray = Color(0xFFB0AAA2)
 
 // Error
-val ErrorRed = Color(0xFFCF6679)
+val ErrorRed = Color(0xFFB3261E)

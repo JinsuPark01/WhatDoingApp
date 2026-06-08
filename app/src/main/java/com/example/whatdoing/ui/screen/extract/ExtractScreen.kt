@@ -97,12 +97,18 @@ fun ExtractScreen(
                             // 9 이하 : 권한 요청 후 저장
                             permissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
                         }
-                    }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     Icon(Icons.Default.Download, contentDescription = "이미지 저장")
                 }
             } else if (uiState.isSaving) {
-                FloatingActionButton(onClick = {}) {
+                FloatingActionButton(
+                    onClick = {},
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp,

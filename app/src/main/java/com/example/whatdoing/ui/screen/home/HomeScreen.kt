@@ -90,7 +90,11 @@ private fun HomeContent(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCreateClick) {
+            FloatingActionButton(
+                onClick = onCreateClick,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ){
                 Icon(Icons.Default.Add, contentDescription = "그룹 만들기")
             }
         }

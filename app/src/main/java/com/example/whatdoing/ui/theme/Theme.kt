@@ -16,62 +16,68 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Blue80,
+private val LightColorScheme = lightColorScheme(
+    primary = Orange,
     onPrimary = Color.White,
-    primaryContainer = Navy80,
-    onPrimaryContainer = Silver80,
+    primaryContainer = OrangeContainer,
+    onPrimaryContainer = OnOrangeContainer,
 
-    secondary = Blue90,
+    secondary = OrangeDark,
     onSecondary = Color.White,
-    secondaryContainer = Navy40,
-    onSecondaryContainer = Silver40,
+    secondaryContainer = BeigeDark,
+    onSecondaryContainer = BrownText,
 
-    tertiary = Silver80,
-    onTertiary = Navy90,
+    tertiary = BrownTextSoft,
+    onTertiary = Color.White,
 
-    background = DarkBackground,
-    onBackground = Color.White,
+    background = Color.White,
+    onBackground = BrownText,
 
-    surface = DarkSurface,
-    onSurface = Color.White,
-    surfaceVariant = Navy80,
-    onSurfaceVariant = Silver80,
+    surface = Color.White,
+    onSurface = BrownText,
+    surfaceVariant = BeigeDark,
+    onSurfaceVariant = BrownTextSoft,
+
+    surfaceContainer = Color.White,
+    surfaceContainerHighest = BeigeLight,
 
     error = ErrorRed,
     onError = Color.White
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Navy40,
+private val DarkColorScheme = darkColorScheme(
+    primary = Orange,
     onPrimary = Color.White,
-    primaryContainer = Blue40,
-    onPrimaryContainer = Navy90,
+    primaryContainer = OrangeDark,
+    onPrimaryContainer = OrangeContainer,
 
-    secondary = Blue40,
-    onSecondary = Color.White,
-    secondaryContainer = Silver40,
-    onSecondaryContainer = Navy90,
+    secondary = Color(0xFFFF9D5C),
+    onSecondary = Color(0xFF3D3325),
+    secondaryContainer = Color(0xFF4A3D2C),
+    onSecondaryContainer = Beige,
 
-    tertiary = Silver90,
-    onTertiary = Color.White,
+    tertiary = BeigeDark,
+    onTertiary = Color(0xFF3D3325),
 
-    background = Color(0xFFF5F7FA),
-    onBackground = Navy90,
+    background = Color(0xFF1A1611),     // 어두운 갈색빛 배경
+    onBackground = Beige,
 
-    surface = Color.White,
-    onSurface = Navy90,
-    surfaceVariant = Silver40,
-    onSurfaceVariant = Navy40,
+    surface = Color(0xFF1A1611),
+    onSurface = Beige,
+    surfaceVariant = Color(0xFF4A3D2C),
+    onSurfaceVariant = BeigeDark,
 
-    error = ErrorRed,
-    onError = Color.White
+    surfaceContainer = Color(0xFF1E1E1E),
+    surfaceContainerHighest = Color(0xFF252017),
+
+    error = Color(0xFFF2B8B5),
+    onError = Color(0xFF3D3325)
 )
 
 @Composable
 fun WhatDoingTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // 다크 네이비 테마 유지를 위해 false로 변경
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
