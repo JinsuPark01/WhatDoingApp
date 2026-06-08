@@ -22,6 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.whatdoing.domain.model.Group
+import com.example.whatdoing.domain.model.GroupPolicy
 import com.example.whatdoing.ui.theme.WhatDoingTheme
 
 @Composable
@@ -140,11 +141,24 @@ private fun GroupJoinContent(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // 멤버 수
+                        val isFull = uiState.group.memberCount >= GroupPolicy.MAX_MEMBERS
                         Text(
-                            text = "멤버 ${uiState.group.memberCount}명",
+                            text = "멤버 ${uiState.group.memberCount} / ${GroupPolicy.MAX_MEMBERS}명",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isFull) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
+                        if (isFull) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "정원이 가득 찼어요",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
 
                         // 그룹 설명
                         if (uiState.group.description.isNotBlank()) {
@@ -172,14 +186,15 @@ private fun GroupJoinContent(
                         if (uiState.isJoining) {
                             CircularProgressIndicator()
                         } else {
+                            val isFull = uiState.group.memberCount >= GroupPolicy.MAX_MEMBERS
                             Button(
                                 onClick = { onIntent(GroupJoinContract.Intent.SubmitJoin) },
-                                enabled = !uiState.isJoining,  // 추가
+                                enabled = !uiState.isJoining && !isFull,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp)
                             ) {
-                                Text("이 그룹에 참여하기")
+                                Text(if (isFull) "정원 마감" else "이 그룹에 참여하기")
                             }
                         }
                     }

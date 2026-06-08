@@ -9,6 +9,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
 import com.example.whatdoing.data.mapper.toGroup
+import com.example.whatdoing.domain.model.GroupPolicy
 import com.google.firebase.firestore.FieldValue
 
 class GroupRepositoryImpl @Inject constructor(
@@ -87,19 +88,32 @@ class GroupRepositoryImpl @Inject constructor(
         return try {
             val docRef = firestore.collection("groups").document(groupId)
 
-            val doc = docRef.get().await()
-            if (!doc.exists()) {
-                return Result.failure(Exception("존재하지 않는 그룹입니다"))
-            }
+            val joined = firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(docRef)
+                if (!snapshot.exists()) {
+                    throw Exception("존재하지 않는 그룹입니다")
+                }
 
-            // 가입 전 멤버였는지 확인
-            val wasAlreadyMember = (doc.get("members") as? List<*>)
-                ?.contains(userId) ?: false
+                val members = (snapshot.get("members") as? List<*>)
+                    ?.filterIsInstance<String>()
+                    ?: emptyList()
 
-            docRef.update("members", FieldValue.arrayUnion(userId)).await()
+                // 이미 멤버면 추가 안 함 (멱등 — 기존 동작 유지)
+                if (members.contains(userId)) {
+                    return@runTransaction false
+                }
 
-            // true = 새로 가입됨, false = 이미 멤버였음
-            Result.success(!wasAlreadyMember)
+                // 정원 체크
+                if (members.size >= GroupPolicy.MAX_MEMBERS) {
+                    throw Exception("그룹 정원이 가득 찼어요 (최대 ${GroupPolicy.MAX_MEMBERS}명)")
+                }
+
+                // 추가 (읽은 값 기준으로 직접 update → 트랜잭션 정합성)
+                transaction.update(docRef, "members", members + userId)
+                true
+            }.await()
+
+            Result.success(joined)
         } catch (e: Exception) {
             Result.failure(e)
         }
