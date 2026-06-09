@@ -20,5 +20,6 @@ object ExtractContract {
 
     sealed interface SideEffect {
         data class ShowToast(val message: String) : SideEffect
+        data object NavigateBack : SideEffect
     }
 }

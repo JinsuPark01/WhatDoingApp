@@ -68,6 +68,8 @@ fun ExtractScreen(
             when (effect) {
                 is ExtractContract.SideEffect.ShowToast ->
                     Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                ExtractContract.SideEffect.NavigateBack ->
+                    onNavigateBack()
             }
         }
     }

@@ -64,6 +64,7 @@ class ExtractViewModel @Inject constructor(
                 onSuccess = {
                     _uiState.update { it.copy(isSaving = false) }
                     _sideEffect.emit(ExtractContract.SideEffect.ShowToast("갤러리에 저장했어요!"))
+                    _sideEffect.emit(ExtractContract.SideEffect.NavigateBack)
                 },
                 onFailure = {
                     _uiState.update { it.copy(isSaving = false) }
