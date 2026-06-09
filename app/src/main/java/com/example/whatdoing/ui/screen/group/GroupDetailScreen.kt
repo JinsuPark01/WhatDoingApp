@@ -41,6 +41,8 @@ import java.util.Locale
 @Composable
 fun GroupDetailScreen(
     groupId: String,
+    recordCreated: Boolean,
+    onRecordCreatedHandled: () -> Unit,
     viewModel: GroupDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToRecord: (String) -> Unit,
@@ -53,6 +55,13 @@ fun GroupDetailScreen(
 
     LaunchedEffect(groupId) {
         viewModel.handleIntent(GroupDetailContract.Intent.LoadGroupDetail(groupId))
+    }
+
+    LaunchedEffect(recordCreated) {
+        if (recordCreated) {
+            viewModel.handleIntent(GroupDetailContract.Intent.RefreshToToday)
+            onRecordCreatedHandled()   // 신호 비움 (여기서)
+        }
     }
 
     LaunchedEffect(viewModel) {

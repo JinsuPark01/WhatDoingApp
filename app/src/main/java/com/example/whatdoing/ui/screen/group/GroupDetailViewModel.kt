@@ -46,64 +46,57 @@ class GroupDetailViewModel @Inject constructor(
                 val start = addDays(_uiState.value.selectedDate, intent.offset)
                 changeDate(start)
             }
+            GroupDetailContract.Intent.RefreshToToday -> refreshToToday()
         }
     }
 
     private fun loadGroupDetail(groupId: String) {
         val currentState = _uiState.value
         val isSameGroup = currentState.groupId == groupId && currentState.group != null
+
+        // 재진입(같은 그룹)이면 상태 유지 — 새로고침은 RefreshToToday로만
+        if (isSameGroup) return
+
+        // 여기 아래는 항상 첫 진입 / 새 그룹
         val today = startOfDay(System.currentTimeMillis())
 
         viewModelScope.launch {
             _uiState.update { it.copy(
-                isLoading = !isSameGroup,
+                isLoading = true,
                 groupId = groupId,
-                selectedDate = today,   // 진입 시 항상 오늘
+                selectedDate = today,
                 errorMessage = null,
                 recordsErrorMessage = null
             )}
 
             supervisorScope {
-                val groupDeferred = if (isSameGroup) {
-                    null
-                } else {
-                    async { getGroupDetailUseCase(groupId) }
-                }
+                val groupDeferred = async { getGroupDetailUseCase(groupId) }
                 val recordsDeferred = async {
                     getRecordsByGroupUseCase(groupId, today, endOfDay(today))
                 }
                 val wroteDeferred = async { hasWroteTodayUseCase(groupId) }
 
-                val groupResult = groupDeferred?.await()
+                val groupResult = groupDeferred.await()
                 val recordsResult = recordsDeferred.await()
                 val wroteResult = wroteDeferred.await()
 
-                if (isSameGroup) {
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        records = recordsResult.getOrDefault(emptyList()),
-                        recordsErrorMessage = if (recordsResult.isFailure) "기록을 불러오지 못했습니다" else null,
-                        hasWroteToday = wroteResult.getOrDefault(false)
-                    )}
-                } else {
-                    groupResult?.fold(
-                        onSuccess = { group ->
-                            _uiState.update { it.copy(
-                                isLoading = false,
-                                group = group,
-                                records = recordsResult.getOrDefault(emptyList()),
-                                recordsErrorMessage = if (recordsResult.isFailure) "기록을 불러오지 못했습니다" else null,
-                                hasWroteToday = wroteResult.getOrDefault(false)
-                            )}
-                        },
-                        onFailure = { e ->
-                            _uiState.update { it.copy(
-                                isLoading = false,
-                                errorMessage = e.message ?: "그룹을 불러올 수 없습니다"
-                            )}
-                        }
-                    )
-                }
+                groupResult.fold(
+                    onSuccess = { group ->
+                        _uiState.update { it.copy(
+                            isLoading = false,
+                            group = group,
+                            records = recordsResult.getOrDefault(emptyList()),
+                            recordsErrorMessage = if (recordsResult.isFailure) "기록을 불러오지 못했습니다" else null,
+                            hasWroteToday = wroteResult.getOrDefault(false)
+                        )}
+                    },
+                    onFailure = { e ->
+                        _uiState.update { it.copy(
+                            isLoading = false,
+                            errorMessage = e.message ?: "그룹을 불러올 수 없습니다"
+                        )}
+                    }
+                )
             }
         }
     }
@@ -160,6 +153,31 @@ class GroupDetailViewModel @Inject constructor(
                     )
                 }
             )
+        }
+    }
+
+    private fun refreshToToday() {
+        val groupId = _uiState.value.groupId
+        if (groupId.isBlank()) return
+
+        val today = startOfDay(System.currentTimeMillis())
+        _uiState.update { it.copy(selectedDate = today, recordsErrorMessage = null) }
+
+        viewModelScope.launch {
+            supervisorScope {
+                val recordsDeferred = async {
+                    getRecordsByGroupUseCase(groupId, today, endOfDay(today))
+                }
+                val wroteDeferred = async { hasWroteTodayUseCase(groupId) }
+                val recordsResult = recordsDeferred.await()
+                val wroteResult = wroteDeferred.await()
+
+                _uiState.update { it.copy(
+                    records = recordsResult.getOrDefault(emptyList()),
+                    recordsErrorMessage = if (recordsResult.isFailure) "기록을 불러오지 못했습니다" else null,
+                    hasWroteToday = wroteResult.getOrDefault(false)
+                )}
+            }
         }
     }
 

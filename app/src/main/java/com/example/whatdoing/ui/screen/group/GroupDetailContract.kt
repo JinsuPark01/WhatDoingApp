@@ -22,7 +22,8 @@ object GroupDetailContract {
         data object NavigateToRecord : Intent
         data object LeaveGroup : Intent
         data class SelectDate(val utcMillis: Long) : Intent   // 달력에서 절대 날짜 선택
-        data class MoveDay(val offset: Int) : Intent          // 화살표 상대 이동 (±1)
+        data class MoveDay(val offset: Int) : Intent          // 화살표 상대 이동
+        data object RefreshToToday : Intent
     }
 
     sealed interface SideEffect {

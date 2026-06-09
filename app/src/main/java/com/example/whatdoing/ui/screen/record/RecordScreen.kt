@@ -35,7 +35,8 @@ import com.example.whatdoing.ui.theme.WhatDoingTheme
 fun RecordScreen(
     groupId: String,
     viewModel: RecordViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onRecordCreated: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -48,7 +49,7 @@ fun RecordScreen(
     LaunchedEffect(viewModel) {
         viewModel.sideEffect.collect { effect ->
             when (effect) {
-                RecordContract.SideEffect.NavigateBack -> onNavigateBack()
+                RecordContract.SideEffect.NavigateBack -> onRecordCreated()
                 is RecordContract.SideEffect.ShowToast -> {
                     Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
                 }

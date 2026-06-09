@@ -1,6 +1,8 @@
 package com.example.whatdoing.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -63,14 +65,18 @@ fun NavGraph(
         }
         composable(
             route = Screen.WriteRecord.route,
-            arguments = listOf(
-                navArgument("groupId") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
         ) { backStackEntry ->
             val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
             RecordScreen(
                 groupId = groupId,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },   // 단순 뒤로
+                onRecordCreated = {
+                    // 이전 화면(GroupDetail)에 완료 신호 남기고 뒤로
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle?.set("recordCreated", true)
+                    navController.popBackStack()
+                }
             )
         }
         composable(Screen.MyPage.route) {
@@ -120,14 +126,20 @@ fun NavGraph(
         }
         composable(
             route = Screen.GroupDetail.route,
-            arguments = listOf(
-                navArgument("groupId") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
         ) { backStackEntry ->
             val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
 
+            val recordCreated by backStackEntry.savedStateHandle
+                .getStateFlow("recordCreated", false)
+                .collectAsStateWithLifecycle()
+
             GroupDetailScreen(
                 groupId = groupId,
+                recordCreated = recordCreated,
+                onRecordCreatedHandled = {
+                    backStackEntry.savedStateHandle["recordCreated"] = false
+                },
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToRecord = { gId ->
                     navController.navigate(Screen.WriteRecord.createRoute(gId))
