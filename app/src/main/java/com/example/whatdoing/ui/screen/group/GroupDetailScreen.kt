@@ -46,6 +46,7 @@ fun GroupDetailScreen(
     viewModel: GroupDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToRecord: (String) -> Unit,
+    onNavigateToEditRecord: (String, String) -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToExtract: (String, Long) -> Unit
 ) {
@@ -85,7 +86,8 @@ fun GroupDetailScreen(
             clipboardManager.setText(AnnotatedString(inviteLink))
             Toast.makeText(context, "초대 링크를 복사했어요!", Toast.LENGTH_SHORT).show()
         },
-        onExtract = { onNavigateToExtract(groupId, uiState.selectedDate) }
+        onExtract = { onNavigateToExtract(groupId, uiState.selectedDate) },
+        onEditRecord = { recordId -> onNavigateToEditRecord(groupId, recordId) }
     )
 }
 
@@ -95,7 +97,8 @@ private fun GroupDetailContent(
     onIntent: (GroupDetailContract.Intent) -> Unit,
     onNavigateBack: () -> Unit,
     onCopyInviteCode: () -> Unit,
-    onExtract: () -> Unit
+    onExtract: () -> Unit,
+    onEditRecord: (String) -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     var showLeaveDialog by remember { mutableStateOf(false) }
@@ -254,7 +257,13 @@ private fun GroupDetailContent(
                                         items = uiState.records,
                                         key = { it.id }
                                     ) { record ->
-                                        RecordCard(record = record)
+                                        val canEdit = record.userId == uiState.currentUserId &&
+                                                isSameDay(record.createdAt, System.currentTimeMillis())
+                                        RecordCard(
+                                            record = record,
+                                            canEdit = canEdit,
+                                            onEditClick = { onEditRecord(record.id) }
+                                        )
                                     }
                                 }
                             }
@@ -419,7 +428,8 @@ private fun GroupDetailContentPreview() {
             onIntent = {},
             onNavigateBack = {},
             onCopyInviteCode = {},
-            onExtract = {}
+            onExtract = {},
+            onEditRecord = {}
         )
     }
 }

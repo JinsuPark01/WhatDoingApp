@@ -34,14 +34,15 @@ import com.example.whatdoing.ui.theme.WhatDoingTheme
 @Composable
 fun RecordScreen(
     groupId: String,
+    recordId: String? = null,
     viewModel: RecordViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onRecordCreated: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(groupId) {
-        viewModel.handleIntent(RecordContract.Intent.Initialize(groupId))
+    LaunchedEffect(groupId, recordId) {
+        viewModel.handleIntent(RecordContract.Intent.Initialize(groupId, recordId))
     }
 
     val context = LocalContext.current
@@ -79,7 +80,7 @@ private fun RecordContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("운동 기록") },
+                title = { Text(if (uiState.isEditMode) "기록 수정" else "운동 기록") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -91,111 +92,133 @@ private fun RecordContent(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // 운동 종류
-            OutlinedTextField(
-                value = uiState.workoutType,
-                onValueChange = { onIntent(RecordContract.Intent.UpdateWorkoutType(it)) },
-                label = { Text("운동 종류") },
-                placeholder = { Text("예: 헬스, 러닝, 사이클") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // 운동 시간
-            OutlinedTextField(
-                value = uiState.workoutDuration,
-                onValueChange = { onIntent(RecordContract.Intent.UpdateDuration(it)) },
-                label = { Text("운동 시간 (분)") },
-                placeholder = { Text("예: 60") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // 인증샷
-            Text(
-                text = "인증샷 (선택)",
-                style = MaterialTheme.typography.bodyMedium
-            )
+        if (uiState.isInitializing) {
+            // 수정 모드: 기존 기록 불러오는 중
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { imagePickerLauncher.launch("image/*") },
+                    .fillMaxSize()
+                    .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                if (uiState.imageUri != null) {
-                    AsyncImage(
-                        model = uiState.imageUri,
-                        contentDescription = "인증샷",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.AddPhotoAlternate,
-                            contentDescription = "이미지 추가",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "사진 추가",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                CircularProgressIndicator()
             }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // 운동 종류
+                OutlinedTextField(
+                    value = uiState.workoutType,
+                    onValueChange = { onIntent(RecordContract.Intent.UpdateWorkoutType(it)) },
+                    label = { Text("운동 종류") },
+                    placeholder = { Text("예: 헬스, 러닝, 사이클") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            // 한줄 소감
-            OutlinedTextField(
-                value = uiState.comment,
-                onValueChange = { onIntent(RecordContract.Intent.UpdateComment(it)) },
-                label = { Text("한줄 소감 (선택)") },
-                placeholder = { Text("오늘 운동 어땠나요?") },
-                minLines = 2,
-                maxLines = 4,
-                modifier = Modifier.fillMaxWidth()
-            )
+                // 운동 시간
+                OutlinedTextField(
+                    value = uiState.workoutDuration,
+                    onValueChange = { onIntent(RecordContract.Intent.UpdateDuration(it)) },
+                    label = { Text("운동 시간 (분)") },
+                    placeholder = { Text("예: 60") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            // 에러 메시지
-            uiState.errorMessage?.let {
+                // 인증샷
                 Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
+                    text = "인증샷 (선택)",
+                    style = MaterialTheme.typography.bodyMedium
                 )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 작성 완료 버튼
-            if (uiState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            } else {
-                Button(
-                    onClick = { onIntent(RecordContract.Intent.SubmitRecord) },
-                    enabled = uiState.isSubmitEnabled,
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { imagePickerLauncher.launch("image/*") },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("기록 남기기")
+                    if (uiState.imageUri != null) {
+                        AsyncImage(
+                            model = uiState.imageUri,
+                            contentDescription = "인증샷",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.AddPhotoAlternate,
+                                contentDescription = "이미지 추가",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "사진 추가",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // 이미지 제거 버튼 (이미지 있을 때만)
+                if (uiState.imageUri != null) {
+                    TextButton(
+                        onClick = { onIntent(RecordContract.Intent.UpdateImage(null)) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("사진 제거")
+                    }
+                }
+
+                // 한줄 소감
+                OutlinedTextField(
+                    value = uiState.comment,
+                    onValueChange = { onIntent(RecordContract.Intent.UpdateComment(it)) },
+                    label = { Text("한줄 소감 (선택)") },
+                    placeholder = { Text("오늘 운동 어땠나요?") },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // 에러 메시지
+                uiState.errorMessage?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 작성/수정 완료 버튼
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                } else {
+                    Button(
+                        onClick = { onIntent(RecordContract.Intent.SubmitRecord) },
+                        enabled = uiState.isSubmitEnabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text(if (uiState.isEditMode) "수정 완료" else "기록 남기기")
+                    }
                 }
             }
         }

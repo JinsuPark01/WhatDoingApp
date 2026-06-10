@@ -2,6 +2,7 @@ package com.example.whatdoing.ui.screen.group
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.whatdoing.domain.usecase.GetCurrentUserIdUseCase
 import com.example.whatdoing.domain.usecase.GetGroupDetailUseCase
 import com.example.whatdoing.domain.usecase.GetRecordsByGroupUseCase
 import com.example.whatdoing.domain.usecase.HasWroteTodayUseCase
@@ -24,7 +25,8 @@ class GroupDetailViewModel @Inject constructor(
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
     private val getRecordsByGroupUseCase: GetRecordsByGroupUseCase,
     private val hasWroteTodayUseCase: HasWroteTodayUseCase,
-    private val leaveGroupUseCase: LeaveGroupUseCase
+    private val leaveGroupUseCase: LeaveGroupUseCase,
+    private val getCurrentUserIdUseCase: GetCurrentUserIdUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupDetailContract.UiState())
@@ -64,6 +66,7 @@ class GroupDetailViewModel @Inject constructor(
             _uiState.update { it.copy(
                 isLoading = true,
                 groupId = groupId,
+                currentUserId = getCurrentUserIdUseCase(),   // UseCase 경유
                 selectedDate = today,
                 errorMessage = null,
                 recordsErrorMessage = null

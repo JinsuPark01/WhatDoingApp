@@ -65,14 +65,22 @@ fun NavGraph(
         }
         composable(
             route = Screen.WriteRecord.route,
-            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType },
+                navArgument("recordId") {                          // 추가
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
         ) { backStackEntry ->
             val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            val recordId = backStackEntry.arguments?.getString("recordId")   // 추가
             RecordScreen(
                 groupId = groupId,
-                onNavigateBack = { navController.popBackStack() },   // 단순 뒤로
+                recordId = recordId,                               // 추가
+                onNavigateBack = { navController.popBackStack() },
                 onRecordCreated = {
-                    // 이전 화면(GroupDetail)에 완료 신호 남기고 뒤로
                     navController.previousBackStackEntry
                         ?.savedStateHandle?.set("recordCreated", true)
                     navController.popBackStack()
@@ -143,6 +151,9 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToRecord = { gId ->
                     navController.navigate(Screen.WriteRecord.createRoute(gId))
+                },
+                onNavigateToEditRecord = { gId, recordId ->                       // 추가
+                    navController.navigate(Screen.WriteRecord.createRoute(gId, recordId))
                 },
                 onNavigateToHome = {
                     navController.navigate(Screen.Home.route) {

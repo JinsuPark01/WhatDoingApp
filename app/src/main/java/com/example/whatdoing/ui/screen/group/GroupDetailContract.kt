@@ -7,6 +7,7 @@ object GroupDetailContract {
 
     data class UiState(
         val groupId: String = "",
+        val currentUserId: String? = null,
         val group: Group? = null,
         val records: List<WorkoutRecord> = emptyList(),
         val hasWroteToday: Boolean = false,

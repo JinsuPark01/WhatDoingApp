@@ -20,6 +20,16 @@ interface RecordRepository {
         comment: String
     ): Result<String>
 
+    suspend fun updateRecord(
+        recordId: String,
+        currentUserId: String,
+        workoutType: String,
+        workoutDuration: Int,
+        imageUri: String?,
+        comment: String
+    ): Result<Unit>
+
     suspend fun getRecordsByUser(userId: String): Result<List<WorkoutRecord>>
+    suspend fun getRecordById(recordId: String): Result<WorkoutRecord>
     suspend fun deleteRecordsByUserInGroup(groupId: String, userId: String): Result<Unit>
 }

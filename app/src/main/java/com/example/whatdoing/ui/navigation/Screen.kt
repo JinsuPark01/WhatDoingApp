@@ -7,8 +7,10 @@ sealed class Screen(val route: String) {
 
     // 메인
     object Home : Screen("home")
-    object WriteRecord : Screen("record/{groupId}") {
-        fun createRoute(groupId: String) = "record/$groupId"
+    object WriteRecord : Screen("record/{groupId}?recordId={recordId}") {
+        fun createRoute(groupId: String, recordId: String? = null) =
+            if (recordId != null) "record/$groupId?recordId=$recordId"
+            else "record/$groupId"
     }
     object MyPage : Screen("mypage")
 
