@@ -41,6 +41,43 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:590780046509:android:9fbf7de8e5836530db3a24",
+        "android_client_info": {
+          "package_name": "com.jinsupark.helpumta"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "590780046509-sqfmkrvv97ttaer6akj1tf7nifu26sql.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jinsupark.helpumta",
+            "certificate_hash": "18f448d8ef4844365d19cb4eef9a28fede8ce6de"
+          }
+        },
+        {
+          "client_id": "590780046509-gq1gbbf41m6c83pofeabf0ml6mi5kqtb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTBemQH8671RT3j9awbjowH-52cxx5w9k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "590780046509-gq1gbbf41m6c83pofeabf0ml6mi5kqtb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

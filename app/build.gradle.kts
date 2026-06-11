@@ -15,11 +15,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.whatdoing"
+    namespace = "com.jinsupark.helpumta"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.whatdoing"
+        applicationId = "com.jinsupark.helpumta"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

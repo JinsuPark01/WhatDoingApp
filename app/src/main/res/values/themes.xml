@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.WhatDoing" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Helpumta" parent="android:Theme.Material.Light.NoActionBar" />
 
-    <style name="Theme.WhatDoing.Starting" parent="Theme.SplashScreen">
+    <style name="Theme.Helpumta.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#FFFFFF</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        <item name="postSplashScreenTheme">@style/Theme.WhatDoing</item>
+        <item name="postSplashScreenTheme">@style/Theme.Helpumta</item>
     </style>
 </resources>
