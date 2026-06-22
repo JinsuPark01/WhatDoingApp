@@ -1,6 +1,8 @@
 package com.jinsupark.helpumta.ui.screen.group.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
@@ -26,49 +28,72 @@ fun RecordCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 작성자 + (연필) + 시간
+            // 헤더: 아바타 + 이름/시간 + 연필
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = record.userName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // 아바타 (이니셜)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = record.userName.firstOrNull()?.toString() ?: "",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // 이름 + 시간
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = record.userName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
                     Text(
                         text = formatTime(record.createdAt),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (canEdit) {
-                        IconButton(
-                            onClick = onEditClick,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "수정",
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                }
+
+                // 연필
+                if (canEdit) {
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "수정",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
 
             // 운동 정보
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = {},
                     label = { Text(record.workoutType) }
@@ -79,7 +104,15 @@ fun RecordCard(
                 )
             }
 
-            // 인증샷
+            // 소감 (있으면)
+            if (record.comment.isNotBlank()) {
+                Text(
+                    text = record.comment,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            // 인증샷 (있으면)
             if (record.imageUrl.isNotBlank()) {
                 AsyncImage(
                     model = record.imageUrl,
@@ -87,16 +120,8 @@ fun RecordCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                )
-            }
-
-            // 소감
-            if (record.comment.isNotBlank()) {
-                Text(
-                    text = record.comment,
-                    style = MaterialTheme.typography.bodyMedium
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(12.dp))
                 )
             }
         }
