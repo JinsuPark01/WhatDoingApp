@@ -6,4 +6,5 @@ interface UserRepository {
 
     // uid 목록 → uid:nickname 맵 (zzz 칸 이름용)
     suspend fun getNicknames(uids: List<String>): Result<Map<String, String>>
+    suspend fun deleteUser(uid: String): Result<Unit>
 }

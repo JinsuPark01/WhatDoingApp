@@ -62,4 +62,13 @@ class UserRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun deleteUser(uid: String): Result<Unit> {
+        return try {
+            firestore.collection("users").document(uid).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
