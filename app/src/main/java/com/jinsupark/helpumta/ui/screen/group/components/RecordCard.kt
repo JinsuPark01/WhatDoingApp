@@ -120,7 +120,7 @@ fun RecordCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp)
+                        .aspectRatio(16f / 9f)
                         .clip(RoundedCornerShape(12.dp))
                 )
             }

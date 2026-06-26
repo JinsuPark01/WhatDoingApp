@@ -88,7 +88,7 @@ private fun GroupCreateContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp)
+                    .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable { imagePickerLauncher.launch("image/*") },

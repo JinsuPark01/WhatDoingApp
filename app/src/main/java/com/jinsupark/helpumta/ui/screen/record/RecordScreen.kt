@@ -140,7 +140,7 @@ private fun RecordContent(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
+                        .aspectRatio(16f / 9f)
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { imagePickerLauncher.launch("image/*") },
