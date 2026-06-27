@@ -8,9 +8,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -147,7 +150,21 @@ private fun LoginContent(
                     onClick = onNavigateToSignUp,
                     enabled = !uiState.isLoading
                 ) {
-                    Text("계정이 없으신가요? 회원가입")
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurface)) {
+                                append("계정이 없으신가요? ")
+                            }
+                            withStyle(
+                                SpanStyle(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            ) {
+                                append("회원가입")
+                            }
+                        }
+                    )
                 }
             }
         }
