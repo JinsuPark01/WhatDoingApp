@@ -132,11 +132,28 @@ private fun RecordContent(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 인증샷
-                Text(
-                    text = "인증샷 (선택)",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                // 인증샷 라벨 + 사진 제거 (한 줄)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "인증샷 (선택)",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (uiState.imageUri != null) {
+                        TextButton(
+                            onClick = { onIntent(RecordContract.Intent.UpdateImage(null)) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text("사진 제거")
+                        }
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -169,16 +186,6 @@ private fun RecordContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
-                }
-
-                // 이미지 제거 버튼 (이미지 있을 때만)
-                if (uiState.imageUri != null) {
-                    TextButton(
-                        onClick = { onIntent(RecordContract.Intent.UpdateImage(null)) },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text("사진 제거")
                     }
                 }
 
