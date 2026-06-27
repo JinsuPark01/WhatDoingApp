@@ -281,22 +281,57 @@ private fun EmptySlot(slot: ExtractSlot.Empty) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A1A1A)),
-        contentAlignment = Alignment.Center
+            .background(Color(0xFF1A1A1A))   // 미기록 어두운 배경
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "zzz",
-                color = Color(0xFF888888),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = slot.nickname,
-                color = Color(0xFF777777),
-                fontSize = 13.sp
-            )
+        // 기록자랑 동일한 좌우 레이아웃
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // 좌측: 이름 / (소감 자리) 💤 zzz
+            Column {
+                Text(
+                    text = slot.nickname,
+                    color = Color.White.copy(alpha = 0.5f),   // 흐리게
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "💤 ",
+                    color = Color.White.copy(alpha = 0.45f),
+                    fontSize = 12.sp
+                )
+            }
+            // 우측: -- / 라벨
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "--",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "운동 시간",
+                    color = Color.White.copy(alpha = 0.35f),
+                    fontSize = 9.sp
+                )
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    text = "--",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "운동 종목",
+                    color = Color.White.copy(alpha = 0.35f),
+                    fontSize = 9.sp
+                )
+            }
         }
     }
 }
