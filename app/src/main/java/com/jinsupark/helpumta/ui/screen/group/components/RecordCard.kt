@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
@@ -67,7 +68,9 @@ fun RecordCard(
                     Text(
                         text = record.userName,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = formatTime(record.createdAt),
@@ -96,11 +99,24 @@ fun RecordCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = {},
-                    label = { Text(record.workoutType) }
+                    label = {
+                        Text(
+                            text = record.workoutType,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    modifier = Modifier.weight(1f, fill = false)   // 남은 공간만, 양보
                 )
                 AssistChip(
                     onClick = {},
-                    label = { Text("${record.workoutDuration}분") }
+                    label = {
+                        Text(
+                            text = "${record.workoutDuration}분",
+                            maxLines = 1,
+                            softWrap = false                        // 줄바꿈/깨짐 방지
+                        )
+                    }
                 )
             }
 
@@ -108,7 +124,9 @@ fun RecordCard(
             if (record.comment.isNotBlank()) {
                 Text(
                     text = record.comment,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 

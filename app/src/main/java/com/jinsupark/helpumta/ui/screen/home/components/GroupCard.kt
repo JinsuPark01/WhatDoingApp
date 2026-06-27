@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.jinsupark.helpumta.domain.model.Group
@@ -81,7 +82,9 @@ fun GroupCard(
                     text = group.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (hasImage) Color.White else MaterialTheme.colorScheme.onSurface
+                    color = if (hasImage) Color.White else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,                          // 추가
+                    overflow = TextOverflow.Ellipsis       // 추가
                 )
                 Text(
                     text = "멤버 ${group.memberCount}명",

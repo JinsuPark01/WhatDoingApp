@@ -2,6 +2,7 @@ package com.jinsupark.helpumta.ui.screen.record
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jinsupark.helpumta.domain.model.WorkoutPolicy
 import com.jinsupark.helpumta.domain.usecase.CreateRecordUseCase
 import com.jinsupark.helpumta.domain.usecase.GetRecordByIdUseCase
 import com.jinsupark.helpumta.domain.usecase.UpdateRecordUseCase
@@ -17,8 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class RecordViewModel @Inject constructor(
     private val createRecordUseCase: CreateRecordUseCase,
-    private val updateRecordUseCase: UpdateRecordUseCase,      // 추가
-    private val getRecordByIdUseCase: GetRecordByIdUseCase     // 추가
+    private val updateRecordUseCase: UpdateRecordUseCase,
+    private val getRecordByIdUseCase: GetRecordByIdUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(RecordContract.UiState())
     val uiState = _uiState.asStateFlow()
@@ -47,7 +48,13 @@ class RecordViewModel @Inject constructor(
             }
             is RecordContract.Intent.UpdateDuration -> {
                 val filtered = intent.duration.filter { it.isDigit() }
-                _uiState.update { it.copy(workoutDuration = filtered) }
+                val capped = when {
+                    filtered.isEmpty() -> filtered                          // 지우는 중 허용
+                    (filtered.toLongOrNull() ?: Long.MAX_VALUE) > WorkoutPolicy.MAX_DURATION_MINUTES ->
+                        _uiState.value.workoutDuration                     // 초과 입력 무시
+                    else -> filtered
+                }
+                _uiState.update { it.copy(workoutDuration = capped) }
             }
             is RecordContract.Intent.UpdateImage -> {
                 _uiState.update { it.copy(imageUri = intent.uri) }
@@ -73,7 +80,7 @@ class RecordViewModel @Inject constructor(
                     workoutDuration = state.workoutDuration.toInt(),
                     imageUri = state.imageUri,
                     comment = state.comment
-                ).map { state.recordId }  // Result<Unit> → Result<String> 맞추기 (아래 설명)
+                ).map { state.recordId }  // Result<Unit> → Result<String> 맞추기
             } else {
                 createRecordUseCase(
                     groupId = state.groupId,

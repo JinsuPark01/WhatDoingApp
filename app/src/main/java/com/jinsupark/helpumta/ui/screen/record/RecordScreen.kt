@@ -125,7 +125,7 @@ private fun RecordContent(
                 OutlinedTextField(
                     value = uiState.workoutDuration,
                     onValueChange = { onIntent(RecordContract.Intent.UpdateDuration(it)) },
-                    label = { Text("운동 시간 (분)") },
+                    label = { Text("운동 시간 (분, 최대 1440)") },
                     placeholder = { Text("예: 60") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

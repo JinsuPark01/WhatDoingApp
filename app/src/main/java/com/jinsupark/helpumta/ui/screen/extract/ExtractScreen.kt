@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -225,16 +226,17 @@ private fun RecordedSlot(slot: ExtractSlot.Recorded) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 28.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // 좌측
-            Column {
+            // 좌측: 남은 공간만 차지 → 우측에 양보, 넘치면 말줄임
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = slot.nickname,
                     color = Color.White,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis        // 닉네임 처리
                 )
                 if (slot.comment.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
@@ -242,35 +244,35 @@ private fun RecordedSlot(slot: ExtractSlot.Recorded) {
                         text = slot.comment,
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 12.sp,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis    // 소감 처리 (종목에 양보)
                     )
                 }
             }
-            // 우측 (값 + 라벨)
+
+            Spacer(Modifier.width(12.dp))
+
+            // 우측: 콘텐츠 크기대로 먼저 자리 차지 (시간/종목 값 보존)
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "${slot.workoutDuration}분",
                     color = Color.White,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
                 )
-                Text(
-                    text = "운동 시간",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 9.sp
-                )
+                Text("운동 시간", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp)
                 Spacer(Modifier.height(7.dp))
                 Text(
                     text = slot.workoutType,
                     color = Color.White,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 140.dp)   // 종목 상한 (극단 길이만 제한)
                 )
-                Text(
-                    text = "운동 종목",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 9.sp
-                )
+                Text("운동 종목", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp)
             }
         }
     }
