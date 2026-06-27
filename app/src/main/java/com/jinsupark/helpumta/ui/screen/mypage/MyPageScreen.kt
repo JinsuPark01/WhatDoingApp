@@ -3,6 +3,8 @@
 package com.jinsupark.helpumta.ui.screen.mypage
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,6 +57,14 @@ fun MyPageScreen(
         uiState = uiState,
         onLogoutClick = { showLogoutDialog = true },
         onDeleteClick = { showDeleteDialog = true },
+        onPrivacyClick = {
+            context.startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://jinsupark01.github.io/helpumta-policy/privacy.html")
+                )
+            )
+        },
         onNavigateBack = onNavigateBack
     )
 
@@ -152,6 +163,7 @@ private fun MyPageContent(
     uiState: MyPageContract.UiState,
     onLogoutClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onPrivacyClick: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     Scaffold(
@@ -242,6 +254,16 @@ private fun MyPageContent(
                 )
             )
 
+            HorizontalDivider()
+
+            ListItem(
+                headlineContent = { Text("개인정보처리방침") },
+                leadingContent = {
+                    Icon(Icons.Default.PrivacyTip, contentDescription = null)
+                },
+                modifier = Modifier.clickable(onClick = onPrivacyClick)
+            )
+
             // 삭제 진행 중 표시
             if (uiState.isDeleting) {
                 Spacer(Modifier.height(16.dp))
@@ -265,6 +287,7 @@ private fun MyPageContentPreview() {
             ),
             onLogoutClick = {},
             onDeleteClick = {},
+            onPrivacyClick = {},
             onNavigateBack = {}
         )
     }
