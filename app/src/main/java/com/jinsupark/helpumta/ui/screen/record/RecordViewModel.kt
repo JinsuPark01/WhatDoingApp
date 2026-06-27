@@ -91,11 +91,9 @@ class RecordViewModel @Inject constructor(
                     _sideEffect.emit(RecordContract.SideEffect.ShowToast(msg))
                     _sideEffect.emit(RecordContract.SideEffect.NavigateBack)
                 },
-                onFailure = { e ->
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        errorMessage = e.message ?: "저장에 실패했습니다"
-                    )}
+                onFailure = {
+                    val msg = if (state.isEditMode) "기록 수정에 실패했어요" else "기록 저장에 실패했어요"
+                    _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
                 }
             )
         }
@@ -114,10 +112,10 @@ class RecordViewModel @Inject constructor(
                         comment = record.comment
                     )}
                 },
-                onFailure = { e ->
+                onFailure = {
                     _uiState.update { it.copy(
                         isInitializing = false,
-                        errorMessage = e.message ?: "기록을 불러오지 못했습니다"
+                        errorMessage = "기록을 불러오지 못했어요"
                     )}
                 }
             )

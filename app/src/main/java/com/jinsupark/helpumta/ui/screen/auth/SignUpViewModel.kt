@@ -2,6 +2,7 @@ package com.jinsupark.helpumta.ui.screen.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jinsupark.helpumta.domain.model.AuthException
 import com.jinsupark.helpumta.domain.usecase.SaveUserUseCase
 import com.jinsupark.helpumta.domain.usecase.SignUpUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,23 +52,22 @@ class SignUpViewModel @Inject constructor(
 
             val state = _uiState.value
             val result = signUpUseCase(
-                email = state.email.trim(),       // trim 추가
+                email = state.email.trim(),
                 password = state.password,
-                nickname = state.nickname.trim()  // trim 추가
+                nickname = state.nickname.trim()
             )
 
             result.fold(
                 onSuccess = {
-                    saveUserUseCase()   // users 저장 (실패해도 흐름 진행)
+                    saveUserUseCase()
                     _uiState.update { it.copy(isLoading = false) }
                     _sideEffect.emit(SignUpContract.SideEffect.ShowToast("회원가입이 완료됐어요!"))
                     _sideEffect.emit(SignUpContract.SideEffect.NavigateToHome)
                 },
                 onFailure = { e ->
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        errorMessage = e.message ?: "회원가입에 실패했습니다"
-                    )}
+                    val msg = (e as? AuthException)?.error?.toMessage()
+                        ?: "잠시 후 다시 시도해주세요"
+                    _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
                 }
             )
         }

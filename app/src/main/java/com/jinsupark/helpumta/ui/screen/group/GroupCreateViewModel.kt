@@ -59,10 +59,10 @@ class GroupCreateViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false) }
                     _sideEffect.emit(GroupCreateContract.SideEffect.NavigateToGroup(groupId))
                 },
-                onFailure = { e ->
+                onFailure = {
                     _uiState.update { it.copy(
                         isLoading = false,
-                        errorMessage = e.message ?: "그룹 생성에 실패했습니다"
+                        errorMessage = "그룹 생성에 실패했어요"
                     )}
                 }
             )

@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.data.auth.GoogleAuthClient
+import com.jinsupark.helpumta.domain.model.AuthException
 import com.jinsupark.helpumta.domain.usecase.EmailLoginUseCase
 import com.jinsupark.helpumta.domain.usecase.GoogleLoginUseCase
 import com.jinsupark.helpumta.domain.usecase.SaveUserUseCase
@@ -63,10 +64,9 @@ class LoginViewModel @Inject constructor(
                     _sideEffect.emit(LoginContract.SideEffect.NavigateToHome)
                 },
                 onFailure = { e ->
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        errorMessage = e.message ?: "로그인에 실패했습니다"
-                    )}
+                    val msg = (e as? AuthException)?.error?.toMessage()
+                        ?: "잠시 후 다시 시도해주세요"
+                    _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
                 }
             )
         }
@@ -86,22 +86,22 @@ class LoginViewModel @Inject constructor(
 
                     loginResult.fold(
                         onSuccess = {
-                            saveUserUseCase()   // 추가
+                            saveUserUseCase()
                             _uiState.update { it.copy(isLoading = false) }
                             _sideEffect.emit(LoginContract.SideEffect.NavigateToHome)
                         },
                         onFailure = { e ->
-                            _uiState.update { it.copy(
-                                isLoading = false,
-                                errorMessage = e.message ?: "구글 로그인에 실패했습니다"
-                            )}
+                            val msg = (e as? AuthException)?.error?.toMessage()
+                                ?: "구글 로그인에 실패했습니다"
+                            _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
                         }
                     )
                 },
-                onFailure = { e ->
+                onFailure = {
+                    // 구글 클라이언트(토큰 받기) 실패 — Firebase 에러 아님
                     _uiState.update { it.copy(
                         isLoading = false,
-                        errorMessage = e.message ?: "구글 계정을 가져올 수 없습니다"
+                        errorMessage = "구글 계정을 가져올 수 없습니다"
                     )}
                 }
             )

@@ -1,12 +1,19 @@
 package com.jinsupark.helpumta.data.repository
 
+import com.google.firebase.FirebaseNetworkException
 import com.jinsupark.helpumta.domain.model.AuthProvider
 import com.jinsupark.helpumta.domain.model.User
 import com.jinsupark.helpumta.domain.repository.AuthRepository
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.userProfileChangeRequest
+import com.jinsupark.helpumta.domain.model.AuthError
+import com.jinsupark.helpumta.domain.model.AuthException
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
@@ -30,7 +37,7 @@ class AuthRepositoryImpl @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(AuthException(e.toAuthError()))
         }
     }
 
@@ -60,7 +67,7 @@ class AuthRepositoryImpl @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(AuthException(e.toAuthError()))
         }
     }
     override suspend fun googleLogin(idToken: String): Result<User> {
@@ -78,7 +85,7 @@ class AuthRepositoryImpl @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(AuthException(e.toAuthError()))
         }
     }
 
@@ -145,4 +152,13 @@ class AuthRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+}
+
+private fun Exception.toAuthError(): AuthError = when (this) {
+    is FirebaseAuthWeakPasswordException -> AuthError.WEAK_PASSWORD
+    is FirebaseAuthInvalidCredentialsException -> AuthError.INVALID_CREDENTIAL
+    is FirebaseAuthInvalidUserException -> AuthError.INVALID_CREDENTIAL  // 보안상 합침
+    is FirebaseAuthUserCollisionException -> AuthError.EMAIL_ALREADY_IN_USE
+    is FirebaseNetworkException -> AuthError.NETWORK
+    else -> AuthError.UNKNOWN
 }

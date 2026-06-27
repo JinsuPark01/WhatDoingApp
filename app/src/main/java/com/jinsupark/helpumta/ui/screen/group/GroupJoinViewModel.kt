@@ -53,10 +53,10 @@ class GroupJoinViewModel @Inject constructor(
                         group = group
                     )}
                 },
-                onFailure = { e ->
+                onFailure = {
                     _uiState.update { it.copy(
                         isLoading = false,
-                        errorMessage = e.message ?: "그룹을 찾을 수 없습니다"
+                        errorMessage = "그룹을 찾을 수 없어요"
                     )}
                 }
             )
@@ -93,7 +93,7 @@ class GroupJoinViewModel @Inject constructor(
                 onFailure = { e ->
                     _uiState.update { it.copy(
                         isJoining = false,
-                        errorMessage = e.message ?: "그룹 참여에 실패했습니다"
+                        errorMessage = e.message ?: "그룹 참여에 실패했어요"
                     )}
                 }
             )
