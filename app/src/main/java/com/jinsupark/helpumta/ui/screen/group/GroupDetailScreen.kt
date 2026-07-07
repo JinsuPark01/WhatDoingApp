@@ -83,7 +83,7 @@ fun GroupDetailScreen(
         onIntent = viewModel::handleIntent,
         onNavigateBack = onNavigateBack,
         onCopyInviteCode = {
-            val inviteLink = "helpumta://group/$groupId"
+            val inviteLink = "https://whatdoing-c4457.web.app/group/$groupId"
             clipboardManager.setText(AnnotatedString(inviteLink))
             Toast.makeText(context, "초대 링크를 복사했어요!", Toast.LENGTH_SHORT).show()
         },

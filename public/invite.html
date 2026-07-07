@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>헬품타 그룹 초대</title>
+    <style>
+        :root {
+          --orange: #FD6F22;
+          --orange-dark: #C85416;
+          --beige-bg: #FAF5EC;
+          --text: #3D3325;
+          --text-soft: #6B5D4A;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+          background: var(--beige-bg);
+          color: var(--text);
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+        }
+        .card {
+          background: #fff;
+          border-radius: 20px;
+          padding: 40px 28px;
+          max-width: 380px;
+          width: 100%;
+          text-align: center;
+          box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+        .logo {
+          width: 72px; height: 72px;
+          border-radius: 20px;
+          background: var(--orange);
+          color: #fff;
+          font-size: 36px; font-weight: 800;
+          display: inline-flex; align-items: center; justify-content: center;
+          margin-bottom: 20px;
+        }
+        h1 { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+        p { color: var(--text-soft); font-size: 15px; line-height: 1.6; margin-bottom: 28px; }
+        .btn {
+          display: block;
+          background: var(--orange);
+          color: #fff;
+          text-decoration: none;
+          padding: 15px;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 16px;
+        }
+        .btn:active { background: var(--orange-dark); }
+        .hint { margin-top: 16px; font-size: 13px; color: var(--text-soft); }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="logo">헬</div>
+    <h1>헬품타 그룹 초대</h1>
+    <p>친구가 운동 그룹에 초대했어요.<br>앱을 설치하고 함께 운동을 기록해보세요!</p>
+    <a class="btn" id="storeBtn" href="https://play.google.com/store/apps/details?id=com.jinsupark.helpumta">
+        헬품타 설치하기
+    </a>
+    <p class="hint">이미 앱이 설치되어 있다면 자동으로 열립니다.</p>
+</div>
+
+<script>
+    // 경로에서 groupId 추출 (/group/xxx)
+    (function() {
+      var path = window.location.pathname;      // /group/xxx
+      var match = path.match(/\/group\/([^\/]+)/);
+      if (match && match[1]) {
+        var groupId = match[1];
+        // 커스텀 스킴으로 앱 열기 시도 (App Links 미인식 대비)
+        window.location.href = 'helpumta://group/' + groupId;
+      }
+    })();
+</script>
+</body>
+</html>

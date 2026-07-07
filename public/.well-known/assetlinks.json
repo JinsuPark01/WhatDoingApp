@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.jinsupark.helpumta",
+      "sha256_cert_fingerprints": [
+        "A3:41:1E:8E:0A:04:CE:C6:B8:14:05:CB:2F:30:13:D2:56:0E:35:10:A0:D4:43:34:13:0E:E0:87:AC:59:7E:DE"
+      ]
+    }
+  }
+]

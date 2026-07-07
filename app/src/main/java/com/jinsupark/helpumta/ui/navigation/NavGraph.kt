@@ -118,6 +118,9 @@ fun NavGraph(
             deepLinks = listOf(
                 navDeepLink {
                     uriPattern = "helpumta://group/{groupId}"
+                },
+                navDeepLink {
+                    uriPattern = "https://whatdoing-c4457.web.app/group/{groupId}"  // App Links 추가
                 }
             )
         ) { backStackEntry ->

@@ -29,6 +29,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!-- 딥링크 추가 -->
+            <!-- 기존 커스텀 스킴 (그대로 유지) -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -36,6 +37,17 @@
                 <data
                     android:scheme="helpumta"
                     android:host="group" />
+            </intent-filter>
+
+            <!-- App Links (https) - 외부 공유용 추가 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="whatdoing-c4457.web.app"
+                    android:pathPrefix="/group" />
             </intent-filter>
         </activity>
     </application>
