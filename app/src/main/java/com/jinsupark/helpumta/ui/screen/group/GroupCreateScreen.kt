@@ -3,7 +3,9 @@
 package com.jinsupark.helpumta.ui.screen.group
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,20 +35,43 @@ fun GroupCreateScreen(
     onNavigateToGroup: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(viewModel) {
         viewModel.sideEffect.collect { effect ->
             when (effect) {
                 is GroupCreateContract.SideEffect.NavigateToGroup -> onNavigateToGroup(effect.groupId)
-                is GroupCreateContract.SideEffect.ShowToast -> { /* TODO */ }
+                is GroupCreateContract.SideEffect.ShowToast -> {
+                    Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                }
             }
         }
+    }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        // 포토피커가 아닌 폴백 경로(구형 기기)에서 비이미지가 넘어오는 케이스 방어
+        val mimeType = context.contentResolver.getType(uri)
+        if (mimeType?.startsWith("image/") != true) {
+            Toast.makeText(context, "이미지 파일만 선택할 수 있어요", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+
+        viewModel.handleIntent(GroupCreateContract.Intent.UpdateImage(uri.toString()))
     }
 
     GroupCreateContent(
         uiState = uiState,
         onIntent = viewModel::handleIntent,
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
+        onPickImage = {
+            imagePickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            )
+        }
     )
 }
 
@@ -53,14 +79,9 @@ fun GroupCreateScreen(
 private fun GroupCreateContent(
     uiState: GroupCreateContract.UiState,
     onIntent: (GroupCreateContract.Intent) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onPickImage: () -> Unit
 ) {
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        onIntent(GroupCreateContract.Intent.UpdateImage(uri?.toString()))  // String으로 변환
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -91,7 +112,7 @@ private fun GroupCreateContent(
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { imagePickerLauncher.launch("image/*") },
+                    .clickable { onPickImage() },
                 contentAlignment = Alignment.Center
             ) {
                 if (uiState.imageUri != null) {
@@ -179,7 +200,8 @@ private fun GroupCreateContentPreview() {
         GroupCreateContent(
             uiState = GroupCreateContract.UiState(),
             onIntent = {},
-            onNavigateBack = {}
+            onNavigateBack = {},
+            onPickImage = {}
         )
     }
 }

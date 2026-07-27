@@ -5,6 +5,7 @@ package com.jinsupark.helpumta.ui.screen.record
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -58,10 +59,30 @@ fun RecordScreen(
         }
     }
 
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        // 포토피커가 아닌 폴백 경로(구형 기기)에서 비이미지가 넘어오는 케이스 방어
+        val mimeType = context.contentResolver.getType(uri)
+        if (mimeType?.startsWith("image/") != true) {
+            Toast.makeText(context, "이미지 파일만 선택할 수 있어요", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+
+        viewModel.handleIntent(RecordContract.Intent.UpdateImage(uri.toString()))
+    }
+
     RecordContent(
         uiState = uiState,
         onIntent = viewModel::handleIntent,
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
+        onPickImage = {
+            imagePickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            )
+        }
     )
 }
 
@@ -69,14 +90,9 @@ fun RecordScreen(
 private fun RecordContent(
     uiState: RecordContract.UiState,
     onIntent: (RecordContract.Intent) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onPickImage: () -> Unit
 ) {
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        onIntent(RecordContract.Intent.UpdateImage(uri?.toString()))
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -160,7 +176,7 @@ private fun RecordContent(
                         .aspectRatio(16f / 9f)
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { imagePickerLauncher.launch("image/*") },
+                        .clickable { onPickImage() },
                     contentAlignment = Alignment.Center
                 ) {
                     if (uiState.imageUri != null) {
@@ -239,7 +255,8 @@ private fun RecordContentPreview() {
         RecordContent(
             uiState = RecordContract.UiState(),
             onIntent = {},
-            onNavigateBack = {}
+            onNavigateBack = {},
+            onPickImage = {}
         )
     }
 }

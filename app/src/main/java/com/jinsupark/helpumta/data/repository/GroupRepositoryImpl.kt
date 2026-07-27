@@ -11,10 +11,13 @@ import javax.inject.Inject
 import com.jinsupark.helpumta.data.mapper.toGroup
 import com.jinsupark.helpumta.domain.model.GroupPolicy
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.storage.storageMetadata
+import com.jinsupark.helpumta.data.util.ImageCompressor
 
 class GroupRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    private val storage: FirebaseStorage,
+    private val imageCompressor: ImageCompressor
 ) : GroupRepository {
 
     override suspend fun getGroups(userId: String): Result<List<Group>> {
@@ -39,10 +42,9 @@ class GroupRepositoryImpl @Inject constructor(
     ): Result<String> {
         return try {
             val imageUrl = imageUri?.let { uriString ->
-                val uri = Uri.parse(uriString)
-                val fileName = "${UUID.randomUUID()}.jpg"
-                val ref = storage.reference.child("groups/$fileName")
-                ref.putFile(uri).await()
+                val bytes = imageCompressor.compress(Uri.parse(uriString), maxSize = 1080)
+                val ref = storage.reference.child("groups/${UUID.randomUUID()}.jpg")
+                ref.putBytes(bytes, storageMetadata { contentType = "image/jpeg" }).await()
                 ref.downloadUrl.await().toString()
             } ?: ""
 

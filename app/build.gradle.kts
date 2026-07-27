@@ -22,7 +22,7 @@ android {
         applicationId = "com.jinsupark.helpumta"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
+        versionCode = 4
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -113,4 +113,7 @@ dependencies {
 
     //
     implementation("androidx.core:core-splashscreen:1.0.1")
+
+    //
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }

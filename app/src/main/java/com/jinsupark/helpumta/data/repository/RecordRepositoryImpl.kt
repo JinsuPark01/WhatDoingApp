@@ -7,6 +7,8 @@ import com.jinsupark.helpumta.domain.repository.RecordRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.storageMetadata
+import com.jinsupark.helpumta.data.util.ImageCompressor
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 import java.util.UUID
@@ -14,7 +16,8 @@ import javax.inject.Inject
 
 class RecordRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    private val storage: FirebaseStorage,
+    private val imageCompressor: ImageCompressor
 ) : RecordRepository {
 
     override suspend fun getRecordsByGroup(
@@ -72,14 +75,7 @@ class RecordRepositoryImpl @Inject constructor(
     ): Result<String> {
         return try {
             // 1. 이미지 업로드 (있을 때만)
-            val imageUrl = imageUri?.let { uriString ->
-                val uri = Uri.parse(uriString)
-                val fileName = "${UUID.randomUUID()}.jpg"
-                // 그룹별로 경로 정리
-                val ref = storage.reference.child("records/$groupId/$fileName")
-                ref.putFile(uri).await()
-                ref.downloadUrl.await().toString()
-            } ?: ""
+            val imageUrl = imageUri?.let { uploadImage(groupId, it) } ?: ""
 
             // 2. Firestore에 기록 저장
             val recordData = hashMapOf(
@@ -142,19 +138,12 @@ class RecordRepositoryImpl @Inject constructor(
                 imageUri.startsWith("http") -> oldImageUrl
                 // 3. 새 로컬 이미지 (content/file) → 업로드 + 기존 삭제
                 else -> {
-                    // 기존 이미지 삭제
-                    if (oldImageUrl.isNotBlank()) {
-                        runCatching {
-                            storage.getReferenceFromUrl(oldImageUrl).delete().await()
-                        }
-                    }
-                    // 새 이미지 업로드
                     val groupId = snapshot.getString("groupId") ?: ""
-                    val uri = Uri.parse(imageUri)
-                    val fileName = "${UUID.randomUUID()}.jpg"
-                    val ref = storage.reference.child("records/$groupId/$fileName")
-                    ref.putFile(uri).await()
-                    ref.downloadUrl.await().toString()
+                    val newUrl = uploadImage(groupId, imageUri)   // 1. 새 이미지 먼저 업로드
+                    if (oldImageUrl.isNotBlank()) {               // 2. 성공 후 기존 삭제
+                        runCatching { storage.getReferenceFromUrl(oldImageUrl).delete().await() }
+                    }
+                    newUrl
                 }
             }
 
@@ -229,5 +218,12 @@ class RecordRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private suspend fun uploadImage(groupId: String, uriString: String): String {
+        val bytes = imageCompressor.compress(Uri.parse(uriString))
+        val ref = storage.reference.child("records/$groupId/${UUID.randomUUID()}.jpg")
+        ref.putBytes(bytes, storageMetadata { contentType = "image/jpeg" }).await()
+        return ref.downloadUrl.await().toString()
     }
 }
