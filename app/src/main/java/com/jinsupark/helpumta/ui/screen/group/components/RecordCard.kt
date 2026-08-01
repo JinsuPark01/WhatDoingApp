@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -25,7 +26,9 @@ import java.util.Locale
 fun RecordCard(
     record: WorkoutRecord,
     canEdit: Boolean,
+    canDelete: Boolean,
     onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -79,7 +82,7 @@ fun RecordCard(
                     )
                 }
 
-                // 연필
+                // 수정 / 삭제
                 if (canEdit) {
                     IconButton(
                         onClick = onEditClick,
@@ -88,6 +91,19 @@ fun RecordCard(
                         Icon(
                             Icons.Default.Edit,
                             contentDescription = "수정",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (canDelete) {
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "삭제",
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )

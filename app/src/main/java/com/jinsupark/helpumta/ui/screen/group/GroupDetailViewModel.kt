@@ -2,6 +2,7 @@ package com.jinsupark.helpumta.ui.screen.group
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jinsupark.helpumta.domain.usecase.DeleteRecordUseCase
 import com.jinsupark.helpumta.domain.usecase.GetCurrentUserIdUseCase
 import com.jinsupark.helpumta.domain.usecase.GetGroupDetailUseCase
 import com.jinsupark.helpumta.domain.usecase.GetRecordsByGroupUseCase
@@ -26,7 +27,8 @@ class GroupDetailViewModel @Inject constructor(
     private val getRecordsByGroupUseCase: GetRecordsByGroupUseCase,
     private val hasWroteTodayUseCase: HasWroteTodayUseCase,
     private val leaveGroupUseCase: LeaveGroupUseCase,
-    private val getCurrentUserIdUseCase: GetCurrentUserIdUseCase
+    private val getCurrentUserIdUseCase: GetCurrentUserIdUseCase,
+    private val deleteRecordUseCase: DeleteRecordUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupDetailContract.UiState())
@@ -49,6 +51,7 @@ class GroupDetailViewModel @Inject constructor(
                 changeDate(start)
             }
             GroupDetailContract.Intent.RefreshToToday -> refreshToToday()
+            is GroupDetailContract.Intent.DeleteRecord -> deleteRecord(intent.recordId)
         }
     }
 
@@ -221,5 +224,38 @@ class GroupDetailViewModel @Inject constructor(
                 0, 0, 0
             )
         }.timeInMillis
+    }
+
+    private fun deleteRecord(recordId: String) {
+        viewModelScope.launch {
+            deleteRecordUseCase(recordId).fold(
+                onSuccess = {
+                    val target = _uiState.value.records.find { it.id == recordId }
+                    val wasToday = target != null &&
+                            isSameDay(target.createdAt, System.currentTimeMillis())
+
+                    _uiState.update { state ->
+                        state.copy(
+                            records = state.records.filter { it.id != recordId },
+                            // 오늘 기록을 지웠으면 다시 작성 가능
+                            hasWroteToday = if (wasToday) false else state.hasWroteToday
+                        )
+                    }
+                    _sideEffect.emit(GroupDetailContract.SideEffect.ShowToast("기록을 삭제했어요"))
+                },
+                onFailure = {
+                    _sideEffect.emit(
+                        GroupDetailContract.SideEffect.ShowToast("기록 삭제에 실패했어요. 다시 시도해주세요.")
+                    )
+                }
+            )
+        }
+    }
+
+    private fun isSameDay(a: Long, b: Long): Boolean {
+        val calA = Calendar.getInstance().apply { timeInMillis = a }
+        val calB = Calendar.getInstance().apply { timeInMillis = b }
+        return calA.get(Calendar.YEAR) == calB.get(Calendar.YEAR) &&
+                calA.get(Calendar.DAY_OF_YEAR) == calB.get(Calendar.DAY_OF_YEAR)
     }
 }

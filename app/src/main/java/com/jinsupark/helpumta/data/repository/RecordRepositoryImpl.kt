@@ -191,6 +191,37 @@ class RecordRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun deleteRecord(
+        recordId: String,
+        currentUserId: String
+    ): Result<Unit> {
+        return try {
+            val docRef = firestore.collection("records").document(recordId)
+            val snapshot = docRef.get().await()
+
+            if (!snapshot.exists()) {
+                return Result.failure(Exception("기록을 찾을 수 없습니다"))
+            }
+
+            // 권한 체크: 본인 기록만
+            val ownerId = snapshot.getString("userId")
+            if (ownerId != currentUserId) {
+                return Result.failure(Exception("본인 기록만 삭제할 수 있습니다"))
+            }
+
+            // Storage 이미지 먼저 삭제 (기존 패턴 재사용)
+            val imageUrl = snapshot.getString("imageUrl") ?: ""
+            if (imageUrl.isNotBlank()) {
+                runCatching { storage.getReferenceFromUrl(imageUrl).delete().await() }
+            }
+
+            docRef.delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun deleteRecordsByUserInGroup(
         groupId: String,
         userId: String

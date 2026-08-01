@@ -104,6 +104,7 @@ private fun GroupDetailContent(
     var menuExpanded by remember { mutableStateOf(false) }
     var showLeaveDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<WorkoutRecord?>(null) }
 
     Scaffold(
         topBar = {
@@ -264,12 +265,15 @@ private fun GroupDetailContent(
                                         items = uiState.records,
                                         key = { it.id }
                                     ) { record ->
-                                        val canEdit = record.userId == uiState.currentUserId &&
+                                        val isMine = record.userId == uiState.currentUserId
+                                        val canEdit = isMine &&
                                                 isSameDay(record.createdAt, System.currentTimeMillis())
                                         RecordCard(
                                             record = record,
                                             canEdit = canEdit,
-                                            onEditClick = { onEditRecord(record.id) }
+                                            canDelete = isMine,
+                                            onEditClick = { onEditRecord(record.id) },
+                                            onDeleteClick = { deleteTarget = record }
                                         )
                                     }
                                 }
@@ -300,6 +304,33 @@ private fun GroupDetailContent(
             },
             dismissButton = {
                 TextButton(onClick = { showLeaveDialog = false }) { Text("취소") }
+            }
+        )
+    }
+
+    // 기록 삭제 확인 다이얼로그
+    deleteTarget?.let { target ->
+        val isToday = isSameDay(target.createdAt, System.currentTimeMillis())
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("기록 삭제") },
+            text = {
+                Text(
+                    if (isToday) {
+                        "삭제하면 사진도 함께 삭제되며 복구할 수 없어요. 오늘 기록은 다시 작성할 수 있어요."
+                    } else {
+                        "삭제하면 사진도 함께 삭제되며 복구할 수 없어요. 지난 날짜는 다시 작성할 수 없어요."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onIntent(GroupDetailContract.Intent.DeleteRecord(target.id))
+                    deleteTarget = null
+                }) { Text("삭제", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) { Text("취소") }
             }
         )
     }
