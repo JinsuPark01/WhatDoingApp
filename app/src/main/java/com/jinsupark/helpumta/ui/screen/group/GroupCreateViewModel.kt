@@ -26,10 +26,7 @@ class GroupCreateViewModel @Inject constructor(
     fun handleIntent(intent: GroupCreateContract.Intent) {
         when (intent) {
             is GroupCreateContract.Intent.UpdateName -> {
-                _uiState.update { it.copy(
-                    name = intent.name,
-                    errorMessage = null
-                )}
+                _uiState.update { it.copy(name = intent.name) }
             }
             is GroupCreateContract.Intent.UpdateDescription -> {
                 _uiState.update { it.copy(description = intent.description) }
@@ -60,10 +57,8 @@ class GroupCreateViewModel @Inject constructor(
                     _sideEffect.emit(GroupCreateContract.SideEffect.NavigateToGroup(groupId))
                 },
                 onFailure = {
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        errorMessage = "그룹 생성에 실패했어요"
-                    )}
+                    _uiState.update { it.copy(isLoading = false) }
+                    _sideEffect.emit(GroupCreateContract.SideEffect.ShowToast("그룹 생성에 실패했어요"))
                 }
             )
         }

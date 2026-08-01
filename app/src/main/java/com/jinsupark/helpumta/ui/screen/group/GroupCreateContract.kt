@@ -6,8 +6,7 @@ object GroupCreateContract {
         val name: String = "",
         val description: String = "",
         val imageUri: String? = null,
-        val isLoading: Boolean = false,
-        val errorMessage: String? = null
+        val isLoading: Boolean = false
     ) {
         val isCreateEnabled: Boolean
             get() = name.isNotBlank()

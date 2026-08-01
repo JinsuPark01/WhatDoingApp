@@ -216,15 +216,6 @@ private fun RecordContent(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 에러 메시지
-                uiState.errorMessage?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // 작성/수정 완료 버튼

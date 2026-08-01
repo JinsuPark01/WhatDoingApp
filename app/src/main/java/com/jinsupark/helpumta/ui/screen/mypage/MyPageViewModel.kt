@@ -46,8 +46,6 @@ class MyPageViewModel @Inject constructor(
                 reauthThenDelete { reauthenticateUseCase.withPassword(intent.password) }
             is MyPageContract.Intent.DeleteWithGoogle ->
                 deleteWithGoogle(intent.activity)
-            MyPageContract.Intent.ErrorShown ->
-                _uiState.update { it.copy(errorMessage = null) }
         }
     }
 
@@ -73,7 +71,7 @@ class MyPageViewModel @Inject constructor(
 
     private fun deleteWithGoogle(activity: Activity) {
         if (_uiState.value.isDeleting) return
-        _uiState.update { it.copy(isDeleting = true, errorMessage = null) }
+        _uiState.update { it.copy(isDeleting = true) }
 
         viewModelScope.launch {
             // 구글 재인증용 idToken 받기 (로그인 패턴과 동일)
@@ -83,12 +81,10 @@ class MyPageViewModel @Inject constructor(
                     runReauthAndDelete { reauthenticateUseCase.withGoogle(idToken) }
                 },
                 onFailure = {
-                    _uiState.update {
-                        it.copy(
-                            isDeleting = false,
-                            errorMessage = "구글 인증에 실패했어요. 다시 시도해주세요."
-                        )
-                    }
+                    _uiState.update { it.copy(isDeleting = false) }
+                    _sideEffect.emit(
+                        MyPageContract.SideEffect.ShowToast("구글 인증에 실패했어요. 다시 시도해주세요.")
+                    )
                 }
             )
         }
@@ -96,7 +92,7 @@ class MyPageViewModel @Inject constructor(
 
     private fun reauthThenDelete(reauth: suspend () -> Result<Unit>) {
         if (_uiState.value.isDeleting) return
-        _uiState.update { it.copy(isDeleting = true, errorMessage = null) }
+        _uiState.update { it.copy(isDeleting = true) }
         viewModelScope.launch {
             runReauthAndDelete(reauth)
         }
@@ -112,22 +108,18 @@ class MyPageViewModel @Inject constructor(
                         _sideEffect.emit(MyPageContract.SideEffect.NavigateToLogin)
                     },
                     onFailure = {
-                        _uiState.update {
-                            it.copy(
-                                isDeleting = false,
-                                errorMessage = "계정 삭제에 실패했어요. 다시 시도해주세요."
-                            )
-                        }
+                        _uiState.update { it.copy(isDeleting = false) }
+                        _sideEffect.emit(
+                            MyPageContract.SideEffect.ShowToast("계정 삭제에 실패했어요. 다시 시도해주세요.")
+                        )
                     }
                 )
             },
             onFailure = {
-                _uiState.update {
-                    it.copy(
-                        isDeleting = false,
-                        errorMessage = "본인 확인에 실패했어요. 비밀번호를 확인해주세요."
-                    )
-                }
+                _uiState.update { it.copy(isDeleting = false) }
+                _sideEffect.emit(
+                    MyPageContract.SideEffect.ShowToast("본인 확인에 실패했어요. 비밀번호를 확인해주세요.")
+                )
             }
         )
     }

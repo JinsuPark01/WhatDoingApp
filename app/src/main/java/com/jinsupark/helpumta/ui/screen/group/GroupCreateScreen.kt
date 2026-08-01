@@ -160,15 +160,6 @@ private fun GroupCreateContent(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // 에러 메시지
-            uiState.errorMessage?.let {
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
             Spacer(modifier = Modifier.weight(1f))
 
             // 생성 버튼

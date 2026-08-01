@@ -5,6 +5,7 @@ package com.jinsupark.helpumta.ui.screen.mypage
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -51,6 +52,9 @@ fun MyPageScreen(
         viewModel.sideEffect.collect { effect ->
             when (effect) {
                 MyPageContract.SideEffect.NavigateToLogin -> onNavigateToLogin()
+                is MyPageContract.SideEffect.ShowToast -> {
+                    Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -150,13 +154,6 @@ fun MyPageScreen(
                 TextButton(onClick = { showPasswordDialog = false }) { Text("취소") }
             }
         )
-    }
-
-    // 에러 메시지 (간단히 - 필요시 스낵바로 교체)
-    uiState.errorMessage?.let { msg ->
-        LaunchedEffect(msg) {
-            // 임시: 토스트 대신 추후 스낵바 통일 예정
-        }
     }
 }
 

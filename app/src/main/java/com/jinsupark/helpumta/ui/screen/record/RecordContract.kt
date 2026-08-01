@@ -4,16 +4,15 @@ object RecordContract {
 
     data class UiState(
         val groupId: String = "",
-        val recordId: String? = null,        // 추가: null=작성, 있음=수정
+        val recordId: String? = null,
         val workoutType: String = "",
         val workoutDuration: String = "",
         val imageUri: String? = null,
         val comment: String = "",
         val isLoading: Boolean = false,
-        val isInitializing: Boolean = false,  // 추가: 수정 시 기존 데이터 로딩
-        val errorMessage: String? = null
+        val isInitializing: Boolean = false
     ) {
-        val isEditMode: Boolean get() = recordId != null   // 추가: 모드 판별
+        val isEditMode: Boolean get() = recordId != null
 
         val isSubmitEnabled: Boolean
             get() = workoutType.isNotBlank() &&

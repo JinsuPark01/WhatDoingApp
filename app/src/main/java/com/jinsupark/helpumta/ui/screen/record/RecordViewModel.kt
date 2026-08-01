@@ -41,10 +41,7 @@ class RecordViewModel @Inject constructor(
                 }
             }
             is RecordContract.Intent.UpdateWorkoutType -> {
-                _uiState.update { it.copy(
-                    workoutType = intent.type,
-                    errorMessage = null
-                )}
+                _uiState.update { it.copy(workoutType = intent.type) }
             }
             is RecordContract.Intent.UpdateDuration -> {
                 val filtered = intent.duration.filter { it.isDigit() }
@@ -70,7 +67,7 @@ class RecordViewModel @Inject constructor(
         if (_uiState.value.isLoading) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(isLoading = true) }
 
             val state = _uiState.value
             val result = if (state.isEditMode) {
@@ -80,7 +77,7 @@ class RecordViewModel @Inject constructor(
                     workoutDuration = state.workoutDuration.toInt(),
                     imageUri = state.imageUri,
                     comment = state.comment
-                ).map { state.recordId }  // Result<Unit> → Result<String> 맞추기
+                ).map { state.recordId }
             } else {
                 createRecordUseCase(
                     groupId = state.groupId,
@@ -99,8 +96,9 @@ class RecordViewModel @Inject constructor(
                     _sideEffect.emit(RecordContract.SideEffect.NavigateBack)
                 },
                 onFailure = {
+                    _uiState.update { it.copy(isLoading = false) }
                     val msg = if (state.isEditMode) "기록 수정에 실패했어요" else "기록 저장에 실패했어요"
-                    _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
+                    _sideEffect.emit(RecordContract.SideEffect.ShowToast(msg))
                 }
             )
         }
@@ -120,10 +118,9 @@ class RecordViewModel @Inject constructor(
                     )}
                 },
                 onFailure = {
-                    _uiState.update { it.copy(
-                        isInitializing = false,
-                        errorMessage = "기록을 불러오지 못했어요"
-                    )}
+                    _uiState.update { it.copy(isInitializing = false) }
+                    _sideEffect.emit(RecordContract.SideEffect.ShowToast("기록을 불러오지 못했어요"))
+                    _sideEffect.emit(RecordContract.SideEffect.NavigateBack)
                 }
             )
         }
