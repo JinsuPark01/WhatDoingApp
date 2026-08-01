@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jinsupark.helpumta.BuildConfig
 import com.jinsupark.helpumta.domain.model.AuthProvider
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 
@@ -262,6 +264,21 @@ private fun MyPageContent(
                     Icon(Icons.Default.PrivacyTip, contentDescription = null)
                 },
                 modifier = Modifier.clickable(onClick = onPrivacyClick)
+            )
+
+            // 버전 정보
+            ListItem(
+                headlineContent = { Text("버전") },
+                leadingContent = {
+                    Icon(Icons.Default.Info, contentDescription = null)
+                },
+                trailingContent = {
+                    Text(
+                        text = BuildConfig.VERSION_NAME,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             )
 
             // 삭제 진행 중 표시
