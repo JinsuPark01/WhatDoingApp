@@ -2,10 +2,13 @@
 
 package com.jinsupark.helpumta.ui.screen.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
@@ -16,11 +19,16 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.domain.model.Group
+import com.jinsupark.helpumta.domain.model.GroupPolicy
 import com.jinsupark.helpumta.ui.screen.home.components.GroupCard
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 
@@ -119,12 +127,7 @@ private fun HomeContent(
                     )
                 }
                 uiState.groups.isEmpty() -> {
-                    Text(
-                        text = "아직 가입한 그룹이 없어요\n그룹을 만들어보세요!",
-                        modifier = Modifier.align(Alignment.Center),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    EmptyGuide(modifier = Modifier.align(Alignment.Center))
                 }
                 else -> {
                     LazyVerticalGrid(
@@ -146,6 +149,120 @@ private fun HomeContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyGuide(
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+    ) {
+        // 세로 라인 + 인트로 문단
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column {
+                Text(
+                    text = "헬품타에 오신 걸 환영해요",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "친구들과 그룹을 만들어\n운동 기록을 함께 공유해보세요",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                GuideItem("그룹은 최대 ${GroupPolicy.MAX_MEMBERS}명까지 참여할 수 있어요")
+                GuideItem("하루에 한 번 운동 기록을 남길 수 있어요")
+                GuideItem("그룹원들의 하루 기록을 한 장의 사진으로 저장할 수 있어요")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .shadow(2.dp, RoundedCornerShape(5.dp))
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Text(
+                text = "버튼으로 그룹을 만들어보세요",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "친구에게 받은 초대 링크로도 참여할 수 있어요",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+    }
+}
+
+@Composable
+private fun GuideItem(text: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Text(
+            text = "·",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

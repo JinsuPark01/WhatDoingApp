@@ -245,12 +245,17 @@ private fun GroupDetailContent(
                                 }
                             }
                             uiState.records.isEmpty() -> {
+                                val isToday = isSameDay(uiState.selectedDate, System.currentTimeMillis())
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "이 날에는 운동 기록이 없어요",
+                                        text = if (isToday) {
+                                            "아직 오늘 기록이 없어요\n첫 기록을 남겨보세요!"
+                                        } else {
+                                            "이 날에는 운동 기록이 없어요"
+                                        },
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
