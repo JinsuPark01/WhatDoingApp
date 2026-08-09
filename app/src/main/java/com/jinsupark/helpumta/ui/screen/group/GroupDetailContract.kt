@@ -26,6 +26,7 @@ object GroupDetailContract {
         data class MoveDay(val offset: Int) : Intent          // 화살표 상대 이동
         data object RefreshToToday : Intent
         data class DeleteRecord(val recordId: String) : Intent
+        data object AlreadyWroteToday : Intent
     }
 
     sealed interface SideEffect {

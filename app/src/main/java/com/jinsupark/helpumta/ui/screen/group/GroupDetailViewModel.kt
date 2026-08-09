@@ -52,6 +52,13 @@ class GroupDetailViewModel @Inject constructor(
             }
             GroupDetailContract.Intent.RefreshToToday -> refreshToToday()
             is GroupDetailContract.Intent.DeleteRecord -> deleteRecord(intent.recordId)
+            GroupDetailContract.Intent.AlreadyWroteToday -> {
+                viewModelScope.launch {
+                    _sideEffect.emit(
+                        GroupDetailContract.SideEffect.ShowToast("오늘 기록은 이미 작성했어요")
+                    )
+                }
+            }
         }
     }
 

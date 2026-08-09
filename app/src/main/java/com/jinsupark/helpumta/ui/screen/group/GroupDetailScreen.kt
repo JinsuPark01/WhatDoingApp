@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.domain.model.Group
+import com.jinsupark.helpumta.domain.model.GroupPolicy
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 import com.jinsupark.helpumta.ui.screen.group.components.RecordCard
 import com.jinsupark.helpumta.ui.theme.DisabledGray
@@ -110,11 +111,20 @@ private fun GroupDetailContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = uiState.group?.name ?: "",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column {
+                        Text(
+                            text = uiState.group?.name ?: "",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        uiState.group?.let { group ->
+                            Text(
+                                text = "멤버 ${group.memberCount} / ${GroupPolicy.MAX_MEMBERS}명",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -176,7 +186,9 @@ private fun GroupDetailContent(
             if (uiState.group != null) {
                 FloatingActionButton(
                     onClick = {
-                        if (!uiState.hasWroteToday) {
+                        if (uiState.hasWroteToday) {
+                            onIntent(GroupDetailContract.Intent.AlreadyWroteToday)
+                        } else {
                             onIntent(GroupDetailContract.Intent.NavigateToRecord)
                         }
                     },
@@ -435,7 +447,7 @@ private fun GroupDetailContentPreview() {
         group = Group(
             id = "1",
             name = "아침 운동 크루",
-            memberCount = 5
+            memberCount = 4
         ),
         records = listOf(
             WorkoutRecord(
