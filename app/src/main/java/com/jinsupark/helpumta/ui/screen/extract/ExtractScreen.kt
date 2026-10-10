@@ -46,6 +46,14 @@ fun ExtractScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val graphicsLayer = rememberGraphicsLayer()
+
+    // 캡처 전 이미지 로딩 완료 추적 (순수 UI 관심사라 ViewModel 미경유)
+    val totalImageCount = remember(uiState.slots) {
+        uiState.slots.count { it is ExtractSlot.Recorded && it.imageUrl.isNotBlank() }
+    }
+    var settledImageCount by remember(uiState.slots) { mutableIntStateOf(0) }
+    val isImagesReady = settledImageCount >= totalImageCount
+
     // 권한 런처 (Android 9 이하용)
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -87,7 +95,7 @@ fun ExtractScreen(
             )
         },
         floatingActionButton = {
-            if (uiState.slots.isNotEmpty() && !uiState.isSaving) {
+            if (uiState.slots.isNotEmpty() && !uiState.isSaving && isImagesReady) {
                 FloatingActionButton(
                     onClick = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -106,7 +114,8 @@ fun ExtractScreen(
                 ) {
                     Icon(Icons.Default.Download, contentDescription = "이미지 저장")
                 }
-            } else if (uiState.isSaving) {
+            } else if (uiState.isSaving || (uiState.slots.isNotEmpty() && !isImagesReady)) {
+                // 저장 중 / 이미지 로딩 중
                 FloatingActionButton(
                     onClick = {},
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -137,7 +146,11 @@ fun ExtractScreen(
                     text = "이 날에는 추출할 기록이 없어요",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                else -> ExtractCanvas(slots = uiState.slots, graphicsLayer = graphicsLayer)
+                else -> ExtractCanvas(
+                    slots = uiState.slots,
+                    graphicsLayer = graphicsLayer,
+                    onImageSettled = { settledImageCount++ }
+                )
             }
         }
     }
@@ -150,7 +163,8 @@ private const val SLOT_MAX_HEIGHT_RATIO = 0.55f
 @Composable
 private fun ExtractCanvas(
     slots: List<ExtractSlot>,
-    graphicsLayer: GraphicsLayer
+    graphicsLayer: GraphicsLayer,
+    onImageSettled: () -> Unit
 ) {
     BoxWithConstraints(
         modifier = Modifier
@@ -188,7 +202,7 @@ private fun ExtractCanvas(
                         .height(slotHeight)
                 ) {
                     when (slot) {
-                        is ExtractSlot.Recorded -> RecordedSlot(slot)
+                        is ExtractSlot.Recorded -> RecordedSlot(slot, onImageSettled)
                         is ExtractSlot.Empty -> EmptySlot(slot)
                     }
                 }
@@ -198,7 +212,10 @@ private fun ExtractCanvas(
 }
 
 @Composable
-private fun RecordedSlot(slot: ExtractSlot.Recorded) {
+private fun RecordedSlot(
+    slot: ExtractSlot.Recorded,
+    onImageSettled: () -> Unit
+) {
     Box(modifier = Modifier.fillMaxSize()) {
         // 배경: 인증샷
         if (slot.imageUrl.isNotBlank()) {
@@ -206,7 +223,10 @@ private fun RecordedSlot(slot: ExtractSlot.Recorded) {
                 model = slot.imageUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                // 성공/실패 모두 "더 기다릴 필요 없음"으로 처리
+                onSuccess = { onImageSettled() },
+                onError = { onImageSettled() }
             )
         } else {
             Box(
