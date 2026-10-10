@@ -22,8 +22,8 @@ android {
         applicationId = "com.jinsupark.helpumta"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.0.2"
+        versionCode = 7
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -118,4 +118,7 @@ dependencies {
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    //
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
+    debugImplementation("com.google.firebase:firebase-appcheck-debug")
 }
