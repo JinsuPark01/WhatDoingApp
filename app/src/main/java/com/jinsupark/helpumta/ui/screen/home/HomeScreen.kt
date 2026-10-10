@@ -4,9 +4,11 @@ package com.jinsupark.helpumta.ui.screen.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,7 +31,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.domain.model.Group
 import com.jinsupark.helpumta.domain.model.GroupPolicy
+import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.ui.screen.home.components.GroupCard
+import com.jinsupark.helpumta.ui.screen.home.components.GroupListCard
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 
 @Composable
@@ -130,20 +134,40 @@ private fun HomeContent(
                     EmptyGuide(modifier = Modifier.align(Alignment.Center))
                 }
                 else -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(
-                            items = uiState.groups,
-                            key = { it.id }
-                        ) { group ->
-                            GroupCard(
-                                group = group,
-                                onClick = { onGroupClick(group.id) }
-                            )
+                    when (uiState.homeLayout) {
+                        HomeLayout.GRID -> {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                contentPadding = PaddingValues(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(
+                                    items = uiState.groups,
+                                    key = { it.id }
+                                ) { group ->
+                                    GroupCard(
+                                        group = group,
+                                        onClick = { onGroupClick(group.id) }
+                                    )
+                                }
+                            }
+                        }
+                        HomeLayout.LIST -> {
+                            LazyColumn(
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(
+                                    items = uiState.groups,
+                                    key = { it.id }
+                                ) { group ->
+                                    GroupListCard(
+                                        group = group,
+                                        onClick = { onGroupClick(group.id) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }

@@ -4,11 +4,14 @@ import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.data.auth.GoogleAuthClient
+import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.domain.usecase.DeleteAccountUseCase
 import com.jinsupark.helpumta.domain.usecase.GetAuthProviderUseCase
+import com.jinsupark.helpumta.domain.usecase.GetHomeLayoutUseCase
 import com.jinsupark.helpumta.domain.usecase.GetUserProfileUseCase
 import com.jinsupark.helpumta.domain.usecase.LogoutUseCase
 import com.jinsupark.helpumta.domain.usecase.ReauthenticateUseCase
+import com.jinsupark.helpumta.domain.usecase.SetHomeLayoutUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +28,8 @@ class MyPageViewModel @Inject constructor(
     private val getAuthProviderUseCase: GetAuthProviderUseCase,
     private val reauthenticateUseCase: ReauthenticateUseCase,
     private val deleteAccountUseCase: DeleteAccountUseCase,
+    private val getHomeLayoutUseCase: GetHomeLayoutUseCase,
+    private val setHomeLayoutUseCase: SetHomeLayoutUseCase,
     private val googleAuthClient: GoogleAuthClient
 ) : ViewModel() {
 
@@ -36,6 +41,7 @@ class MyPageViewModel @Inject constructor(
 
     init {
         handleIntent(MyPageContract.Intent.LoadUserInfo)
+        observeHomeLayout()
     }
 
     fun handleIntent(intent: MyPageContract.Intent) {
@@ -46,6 +52,22 @@ class MyPageViewModel @Inject constructor(
                 reauthThenDelete { reauthenticateUseCase.withPassword(intent.password) }
             is MyPageContract.Intent.DeleteWithGoogle ->
                 deleteWithGoogle(intent.activity)
+            is MyPageContract.Intent.ChangeHomeLayout ->
+                changeHomeLayout(intent.layout)
+        }
+    }
+
+    private fun observeHomeLayout() {
+        viewModelScope.launch {
+            getHomeLayoutUseCase().collect { layout ->
+                _uiState.update { it.copy(homeLayout = layout) }
+            }
+        }
+    }
+
+    private fun changeHomeLayout(layout: HomeLayout) {
+        viewModelScope.launch {
+            setHomeLayoutUseCase(layout)
         }
     }
 

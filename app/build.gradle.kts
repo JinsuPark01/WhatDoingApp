@@ -116,4 +116,6 @@ dependencies {
 
     //
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+    // DataStore
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 }

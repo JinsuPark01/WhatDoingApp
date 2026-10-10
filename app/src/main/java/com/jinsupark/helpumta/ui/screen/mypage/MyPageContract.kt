@@ -2,6 +2,7 @@ package com.jinsupark.helpumta.ui.screen.mypage
 
 import android.app.Activity
 import com.jinsupark.helpumta.domain.model.AuthProvider
+import com.jinsupark.helpumta.domain.model.HomeLayout
 
 object MyPageContract {
 
@@ -9,7 +10,8 @@ object MyPageContract {
         val nickname: String = "",
         val email: String = "",
         val authProvider: AuthProvider = AuthProvider.UNKNOWN,
-        val isDeleting: Boolean = false
+        val isDeleting: Boolean = false,
+        val homeLayout: HomeLayout = HomeLayout.GRID
     )
 
     sealed interface Intent {
@@ -17,6 +19,7 @@ object MyPageContract {
         data object Logout : Intent
         data class DeleteWithPassword(val password: String) : Intent       // 이메일 사용자
         data class DeleteWithGoogle(val activity: Activity) : Intent        // 구글 사용자
+        data class ChangeHomeLayout(val layout: HomeLayout) : Intent
     }
 
     sealed interface SideEffect {

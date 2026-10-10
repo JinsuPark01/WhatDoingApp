@@ -14,9 +14,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.BuildConfig
 import com.jinsupark.helpumta.domain.model.AuthProvider
+import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 
 @Composable
@@ -71,7 +75,10 @@ fun MyPageScreen(
                 )
             )
         },
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
+        onChangeHomeLayout = { layout ->
+            viewModel.handleIntent(MyPageContract.Intent.ChangeHomeLayout(layout))
+        }
     )
 
     // 로그아웃 다이얼로그 (기존)
@@ -163,7 +170,8 @@ private fun MyPageContent(
     onLogoutClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onPrivacyClick: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onChangeHomeLayout: (HomeLayout) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -223,6 +231,49 @@ private fun MyPageContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            HorizontalDivider()
+
+            // 홈 화면 배치 설정
+            ListItem(
+                headlineContent = { Text("홈 화면 배치") },
+                supportingContent = {
+                    Text(
+                        text = if (uiState.homeLayout == HomeLayout.GRID) "2열 그리드" else "1열 목록"
+                    )
+                },
+                leadingContent = {
+                    Icon(Icons.Default.ViewAgenda, contentDescription = null)
+                },
+                trailingContent = {
+                    SingleChoiceSegmentedButtonRow {
+                        SegmentedButton(
+                            selected = uiState.homeLayout == HomeLayout.GRID,
+                            onClick = { onChangeHomeLayout(HomeLayout.GRID) },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            icon = {}
+                        ) {
+                            Icon(
+                                Icons.Default.GridView,
+                                contentDescription = "2열 그리드",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        SegmentedButton(
+                            selected = uiState.homeLayout == HomeLayout.LIST,
+                            onClick = { onChangeHomeLayout(HomeLayout.LIST) },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            icon = {}
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ViewList,
+                                contentDescription = "1열 목록",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            )
 
             HorizontalDivider()
 
@@ -302,7 +353,8 @@ private fun MyPageContentPreview() {
             onLogoutClick = {},
             onDeleteClick = {},
             onPrivacyClick = {},
-            onNavigateBack = {}
+            onNavigateBack = {},
+            onChangeHomeLayout = {}
         )
     }
 }

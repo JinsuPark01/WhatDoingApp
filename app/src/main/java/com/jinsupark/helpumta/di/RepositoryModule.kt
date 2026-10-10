@@ -3,10 +3,12 @@ package com.jinsupark.helpumta.di
 import com.jinsupark.helpumta.data.repository.AuthRepositoryImpl
 import com.jinsupark.helpumta.data.repository.GroupRepositoryImpl
 import com.jinsupark.helpumta.data.repository.RecordRepositoryImpl
+import com.jinsupark.helpumta.data.repository.SettingsRepositoryImpl
 import com.jinsupark.helpumta.data.repository.UserRepositoryImpl
 import com.jinsupark.helpumta.domain.repository.AuthRepository
 import com.jinsupark.helpumta.domain.repository.GroupRepository
 import com.jinsupark.helpumta.domain.repository.RecordRepository
+import com.jinsupark.helpumta.domain.repository.SettingsRepository
 import com.jinsupark.helpumta.domain.repository.UserRepository
 import dagger.Binds
 import dagger.Module
@@ -41,4 +43,10 @@ abstract class RepositoryModule {
     abstract fun bindUserRepository(
         userRepositoryImpl: UserRepositoryImpl
     ): UserRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSettingsRepository(
+        settingsRepositoryImpl: SettingsRepositoryImpl
+    ): SettingsRepository
 }

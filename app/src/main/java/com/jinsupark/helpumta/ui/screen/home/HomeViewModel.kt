@@ -3,6 +3,7 @@ package com.jinsupark.helpumta.ui.screen.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.domain.usecase.GetGroupsUseCase
+import com.jinsupark.helpumta.domain.usecase.GetHomeLayoutUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val getGroupsUseCase: GetGroupsUseCase
+    private val getGroupsUseCase: GetGroupsUseCase,
+    private val getHomeLayoutUseCase: GetHomeLayoutUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeContract.UiState())
@@ -24,6 +26,7 @@ class HomeViewModel @Inject constructor(
     val sideEffect = _sideEffect.asSharedFlow()
 
     init {
+        observeHomeLayout()
         handleIntent(HomeContract.Intent.LoadGroups)
     }
 
@@ -32,6 +35,15 @@ class HomeViewModel @Inject constructor(
             HomeContract.Intent.LoadGroups -> loadGroups()
             is HomeContract.Intent.NavigateToGroup -> navigateToGroup(intent.groupId)
             HomeContract.Intent.NavigateToCreateGroup -> navigateToCreateGroup()
+        }
+    }
+
+    // DataStore가 Flow를 주므로 설정이 바뀌면 홈이 자동 반영됨
+    private fun observeHomeLayout() {
+        viewModelScope.launch {
+            getHomeLayoutUseCase().collect { layout ->
+                _uiState.update { it.copy(homeLayout = layout) }
+            }
         }
     }
 
