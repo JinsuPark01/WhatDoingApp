@@ -10,6 +10,7 @@
 
 > **본 프로젝트는 Clean Architecture + MVI 패턴의 일관된 적용을 핵심 목표로 한 개인 포트폴리오 프로젝트입니다.**
 
+> 🔁 이 앱을 Flutter로 재구현하고 두 플랫폼의 설계 차이를 비교한 프로젝트: [헬품타 Flutter](https://github.com/JinsuPark01/helpumta-flutter)
 ---
 
 ## 🎥 Demo / 📷 Screenshots
