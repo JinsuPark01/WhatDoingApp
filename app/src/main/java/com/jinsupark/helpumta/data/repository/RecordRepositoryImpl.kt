@@ -124,26 +124,16 @@ class RecordRepositoryImpl @Inject constructor(
             val oldImageUrl = snapshot.getString("imageUrl") ?: ""
 
             // 이미지 3케이스 처리
+            // 원칙: Storage 삭제는 Firestore 반영이 끝난 뒤에 (깨진 참조 방지)
             val newImageUrl: String = when {
-                // 1. null → 제거 (기존 있으면 삭제)
-                imageUri == null -> {
-                    if (oldImageUrl.isNotBlank()) {
-                        runCatching {
-                            storage.getReferenceFromUrl(oldImageUrl).delete().await()
-                        }
-                    }
-                    ""
-                }
+                // 1. null → 제거 (삭제는 Firestore 업데이트 후로 미룸)
+                imageUri == null -> ""
                 // 2. 기존 URL 그대로 (https) → 유지
                 imageUri.startsWith("http") -> oldImageUrl
-                // 3. 새 로컬 이미지 (content/file) → 업로드 + 기존 삭제
+                // 3. 새 로컬 이미지 (content/file) → 업로드 (기존 삭제는 아래에서)
                 else -> {
                     val groupId = snapshot.getString("groupId") ?: ""
-                    val newUrl = uploadImage(groupId, imageUri)   // 1. 새 이미지 먼저 업로드
-                    if (oldImageUrl.isNotBlank()) {               // 2. 성공 후 기존 삭제
-                        runCatching { storage.getReferenceFromUrl(oldImageUrl).delete().await() }
-                    }
-                    newUrl
+                    uploadImage(groupId, imageUri)
                 }
             }
 
@@ -156,6 +146,11 @@ class RecordRepositoryImpl @Inject constructor(
                     "comment" to comment
                 )
             ).await()
+
+            // Firestore 반영 성공 후, 더 이상 참조되지 않는 기존 이미지 정리
+            if (oldImageUrl.isNotBlank() && oldImageUrl != newImageUrl) {
+                runCatching { storage.getReferenceFromUrl(oldImageUrl).delete().await() }
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -209,13 +204,16 @@ class RecordRepositoryImpl @Inject constructor(
                 return Result.failure(Exception("본인 기록만 삭제할 수 있습니다"))
             }
 
-            // Storage 이미지 먼저 삭제 (기존 패턴 재사용)
             val imageUrl = snapshot.getString("imageUrl") ?: ""
+
+            // Firestore 문서 먼저 삭제 → 실패해도 이미지가 남아 기록이 깨지지 않음
+            docRef.delete().await()
+
+            // 문서 삭제 성공 후 이미지 정리
             if (imageUrl.isNotBlank()) {
                 runCatching { storage.getReferenceFromUrl(imageUrl).delete().await() }
             }
 
-            docRef.delete().await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -234,15 +232,17 @@ class RecordRepositoryImpl @Inject constructor(
                 .await()
 
             for (doc in snapshot.documents) {
-                // Storage 이미지 먼저 삭제
                 val imageUrl = doc.getString("imageUrl") ?: ""
+
+                // Firestore 문서 먼저 삭제
+                doc.reference.delete().await()
+
+                // 문서 삭제 성공 후 이미지 정리
                 if (imageUrl.isNotBlank()) {
                     runCatching {
                         storage.getReferenceFromUrl(imageUrl).delete().await()
                     }
                 }
-                // Firestore 문서 삭제
-                doc.reference.delete().await()
             }
 
             Result.success(Unit)

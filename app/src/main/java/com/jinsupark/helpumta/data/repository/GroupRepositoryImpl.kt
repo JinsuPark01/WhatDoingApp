@@ -136,14 +136,14 @@ class GroupRepositoryImpl @Inject constructor(
             val remaining = members.filter { it != userId }
 
             if (remaining.isEmpty()) {
-                // 마지막 멤버 → 그룹 자체 삭제 + 그룹 이미지 삭제
+                // 마지막 멤버 → 그룹 문서 먼저 삭제 후 이미지 정리
                 val imageUrl = doc.getString("imageUrl") ?: ""
+                docRef.delete().await()
                 if (imageUrl.isNotBlank()) {
                     runCatching {
                         storage.getReferenceFromUrl(imageUrl).delete().await()
                     }
                 }
-                docRef.delete().await()
             } else {
                 // 멤버 남아있음 → 배열에서 본인만 제거
                 docRef.update("members", FieldValue.arrayRemove(userId)).await()
