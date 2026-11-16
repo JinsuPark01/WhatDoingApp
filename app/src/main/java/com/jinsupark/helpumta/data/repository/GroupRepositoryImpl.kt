@@ -124,29 +124,37 @@ class GroupRepositoryImpl @Inject constructor(
     override suspend fun leaveGroup(groupId: String, userId: String): Result<Unit> {
         return try {
             val docRef = firestore.collection("groups").document(groupId)
-            val doc = docRef.get().await()
 
-            if (!doc.exists()) {
-                // 이미 없는 그룹이면 성공 처리 (멱등성)
-                return Result.success(Unit)
-            }
-
-            val members = (doc.get("members") as? List<*>)?.filterIsInstance<String>()
-                ?: emptyList()
-            val remaining = members.filter { it != userId }
-
-            if (remaining.isEmpty()) {
-                // 마지막 멤버 → 그룹 문서 먼저 삭제 후 이미지 정리
-                val imageUrl = doc.getString("imageUrl") ?: ""
-                docRef.delete().await()
-                if (imageUrl.isNotBlank()) {
-                    runCatching {
-                        storage.getReferenceFromUrl(imageUrl).delete().await()
-                    }
+            // 동시 탈퇴 시 멤버 0명 그룹이 남는 것을 방지 — 읽기~쓰기를 트랜잭션으로 묶음
+            // Storage 삭제는 트랜잭션 재시도 대상이 되면 안 되므로 밖에서 처리
+            val deletedImageUrl = firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(docRef)
+                if (!snapshot.exists()) {
+                    // 이미 없는 그룹이면 성공 처리 (멱등성)
+                    return@runTransaction null
                 }
-            } else {
-                // 멤버 남아있음 → 배열에서 본인만 제거
-                docRef.update("members", FieldValue.arrayRemove(userId)).await()
+
+                val members = (snapshot.get("members") as? List<*>)
+                    ?.filterIsInstance<String>()
+                    ?: emptyList()
+                val remaining = members.filter { it != userId }
+
+                if (remaining.isEmpty()) {
+                    // 마지막 멤버 → 그룹 삭제, 이미지 URL은 밖에서 정리
+                    transaction.delete(docRef)
+                    snapshot.getString("imageUrl")?.takeIf { it.isNotBlank() }
+                } else {
+                    // 멤버 남아있음 → 읽은 값 기준으로 직접 write (트랜잭션 정합성)
+                    transaction.update(docRef, "members", remaining)
+                    null
+                }
+            }.await()
+
+            // 그룹이 실제로 삭제된 경우에만 대표 이미지 정리
+            if (deletedImageUrl != null) {
+                runCatching {
+                    storage.getReferenceFromUrl(deletedImageUrl).delete().await()
+                }
             }
 
             Result.success(Unit)
@@ -154,7 +162,6 @@ class GroupRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
-
     override suspend fun getMemberIds(groupId: String): Result<List<String>> {
         return try {
             val doc = firestore.collection("groups").document(groupId).get().await()
