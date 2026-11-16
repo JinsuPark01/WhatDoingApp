@@ -1,9 +1,7 @@
 package com.jinsupark.helpumta.ui.screen.mypage
 
-import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jinsupark.helpumta.data.auth.GoogleAuthClient
 import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.domain.usecase.DeleteAccountUseCase
 import com.jinsupark.helpumta.domain.usecase.GetAuthProviderUseCase
@@ -29,8 +27,7 @@ class MyPageViewModel @Inject constructor(
     private val reauthenticateUseCase: ReauthenticateUseCase,
     private val deleteAccountUseCase: DeleteAccountUseCase,
     private val getHomeLayoutUseCase: GetHomeLayoutUseCase,
-    private val setHomeLayoutUseCase: SetHomeLayoutUseCase,
-    private val googleAuthClient: GoogleAuthClient
+    private val setHomeLayoutUseCase: SetHomeLayoutUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MyPageContract.UiState())
@@ -51,10 +48,23 @@ class MyPageViewModel @Inject constructor(
             is MyPageContract.Intent.DeleteWithPassword ->
                 reauthThenDelete { reauthenticateUseCase.withPassword(intent.password) }
             is MyPageContract.Intent.DeleteWithGoogle ->
-                deleteWithGoogle(intent.activity)
+                reauthThenDelete { reauthenticateUseCase.withGoogle(intent.idToken) }
+            MyPageContract.Intent.GoogleReauthCancelled -> {
+                _uiState.update { it.copy(isDeleting = false) }
+                viewModelScope.launch {
+                    _sideEffect.emit(
+                        MyPageContract.SideEffect.ShowToast("구글 인증에 실패했어요. 다시 시도해주세요.")
+                    )
+                }
+            }
             is MyPageContract.Intent.ChangeHomeLayout ->
                 changeHomeLayout(intent.layout)
         }
+    }
+
+    // Screen에서 Credential Manager 팝업을 띄우기 직전에 호출
+    fun onGoogleReauthStarted() {
+        _uiState.update { it.copy(isDeleting = true) }
     }
 
     private fun observeHomeLayout() {
@@ -91,29 +101,7 @@ class MyPageViewModel @Inject constructor(
         }
     }
 
-    private fun deleteWithGoogle(activity: Activity) {
-        if (_uiState.value.isDeleting) return
-        _uiState.update { it.copy(isDeleting = true) }
-
-        viewModelScope.launch {
-            // 구글 재인증용 idToken 받기 (로그인 패턴과 동일)
-            val tokenResult = googleAuthClient.getIdToken(activity)
-            tokenResult.fold(
-                onSuccess = { idToken ->
-                    runReauthAndDelete { reauthenticateUseCase.withGoogle(idToken) }
-                },
-                onFailure = {
-                    _uiState.update { it.copy(isDeleting = false) }
-                    _sideEffect.emit(
-                        MyPageContract.SideEffect.ShowToast("구글 인증에 실패했어요. 다시 시도해주세요.")
-                    )
-                }
-            )
-        }
-    }
-
     private fun reauthThenDelete(reauth: suspend () -> Result<Unit>) {
-        if (_uiState.value.isDeleting) return
         _uiState.update { it.copy(isDeleting = true) }
         viewModelScope.launch {
             runReauthAndDelete(reauth)

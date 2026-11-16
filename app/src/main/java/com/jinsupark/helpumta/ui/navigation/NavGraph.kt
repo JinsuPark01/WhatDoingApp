@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.jinsupark.helpumta.data.auth.GoogleAuthClient
 import com.jinsupark.helpumta.ui.screen.auth.LoginScreen
 import com.jinsupark.helpumta.ui.screen.auth.SignUpScreen
 import com.jinsupark.helpumta.ui.screen.extract.ExtractScreen
@@ -22,7 +23,8 @@ import com.jinsupark.helpumta.ui.screen.record.RecordScreen
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    startDestination: String  // 추가
+    startDestination: String,
+    googleAuthClient: GoogleAuthClient
 ) {
     NavHost(
         navController = navController,
@@ -30,6 +32,7 @@ fun NavGraph(
     ) {
         composable(Screen.Login.route) {
             LoginScreen(
+                googleAuthClient = googleAuthClient,
                 onNavigateToHome = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
@@ -89,6 +92,7 @@ fun NavGraph(
         }
         composable(Screen.MyPage.route) {
             MyPageScreen(
+                googleAuthClient = googleAuthClient,
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(navController.graph.id) {

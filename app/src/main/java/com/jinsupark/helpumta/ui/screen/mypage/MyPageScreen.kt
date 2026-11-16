@@ -34,19 +34,23 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.BuildConfig
+import com.jinsupark.helpumta.data.auth.GoogleAuthClient
 import com.jinsupark.helpumta.domain.model.AuthProvider
 import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun MyPageScreen(
     viewModel: MyPageViewModel = hiltViewModel(),
+    googleAuthClient: GoogleAuthClient,
     onNavigateToLogin: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context as Activity
+    val scope = rememberCoroutineScope()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }   // 삭제 확인
@@ -112,8 +116,24 @@ fun MyPageScreen(
                     showDeleteDialog = false
                     // provider 따라 분기
                     when (uiState.authProvider) {
-                        AuthProvider.GOOGLE ->
-                            viewModel.handleIntent(MyPageContract.Intent.DeleteWithGoogle(activity))
+                        AuthProvider.GOOGLE -> {
+                            // Credential Manager 팝업은 Activity가 필요 → Screen에서 처리
+                            viewModel.onGoogleReauthStarted()
+                            scope.launch {
+                                googleAuthClient.getIdToken(activity).fold(
+                                    onSuccess = { idToken ->
+                                        viewModel.handleIntent(
+                                            MyPageContract.Intent.DeleteWithGoogle(idToken)
+                                        )
+                                    },
+                                    onFailure = {
+                                        viewModel.handleIntent(
+                                            MyPageContract.Intent.GoogleReauthCancelled
+                                        )
+                                    }
+                                )
+                            }
+                        }
                         else ->
                             showPasswordDialog = true  // 이메일 → 비번 입력 다이얼로그
                     }

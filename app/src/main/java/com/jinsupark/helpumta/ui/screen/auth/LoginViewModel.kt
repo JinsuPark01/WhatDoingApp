@@ -1,9 +1,7 @@
 package com.jinsupark.helpumta.ui.screen.auth
 
-import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jinsupark.helpumta.data.auth.GoogleAuthClient
 import com.jinsupark.helpumta.domain.model.AuthException
 import com.jinsupark.helpumta.domain.usecase.EmailLoginUseCase
 import com.jinsupark.helpumta.domain.usecase.GoogleLoginUseCase
@@ -21,7 +19,6 @@ import javax.inject.Inject
 class LoginViewModel @Inject constructor(
     private val emailLoginUseCase: EmailLoginUseCase,
     private val googleLoginUseCase: GoogleLoginUseCase,
-    private val googleAuthClient: GoogleAuthClient,
     private val saveUserUseCase: SaveUserUseCase
 ) : ViewModel() {
 
@@ -39,9 +36,17 @@ class LoginViewModel @Inject constructor(
             is LoginContract.Intent.UpdatePassword -> {
                 _uiState.update { it.copy(password = intent.password, errorMessage = null) }
             }
-            is LoginContract.Intent.GoogleLogin -> googleLogin(intent.activity)
+            is LoginContract.Intent.GoogleLogin -> googleLogin(intent.idToken)
+            LoginContract.Intent.GoogleLoginCancelled -> {
+                _uiState.update { it.copy(isLoading = false) }
+            }
             LoginContract.Intent.SubmitLogin -> emailLogin()
         }
+    }
+
+    // Screen에서 Credential Manager 팝업을 띄우기 직전에 호출
+    fun onGoogleLoginStarted() {
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
     }
 
     private fun emailLogin() {
@@ -72,37 +77,20 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    private fun googleLogin(activity: Activity) {
-        if (_uiState.value.isLoading) return
-
+    private fun googleLogin(idToken: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            val tokenResult = googleAuthClient.getIdToken(activity)
-
-            tokenResult.fold(
-                onSuccess = { idToken ->
-                    val loginResult = googleLoginUseCase(idToken)
-
-                    loginResult.fold(
-                        onSuccess = {
-                            saveUserUseCase()
-                            _uiState.update { it.copy(isLoading = false) }
-                            _sideEffect.emit(LoginContract.SideEffect.NavigateToHome)
-                        },
-                        onFailure = { e ->
-                            val msg = (e as? AuthException)?.error?.toMessage()
-                                ?: "구글 로그인에 실패했습니다"
-                            _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
-                        }
-                    )
+            googleLoginUseCase(idToken).fold(
+                onSuccess = {
+                    saveUserUseCase()
+                    _uiState.update { it.copy(isLoading = false) }
+                    _sideEffect.emit(LoginContract.SideEffect.NavigateToHome)
                 },
-                onFailure = {
-                    // 구글 클라이언트(토큰 받기) 실패 — Firebase 에러 아님
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        errorMessage = "구글 계정을 가져올 수 없습니다"
-                    )}
+                onFailure = { e ->
+                    val msg = (e as? AuthException)?.error?.toMessage()
+                        ?: "구글 로그인에 실패했습니다"
+                    _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
                 }
             )
         }

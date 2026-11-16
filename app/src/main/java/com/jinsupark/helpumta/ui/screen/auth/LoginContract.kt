@@ -1,4 +1,4 @@
-import android.app.Activity
+package com.jinsupark.helpumta.ui.screen.auth
 
 object LoginContract {
 
@@ -16,7 +16,9 @@ object LoginContract {
         data class UpdateEmail(val email: String) : Intent
         data class UpdatePassword(val password: String) : Intent
         data object SubmitLogin : Intent
-        data class GoogleLogin(val activity: Activity) : Intent
+        // Credential Manager 호출은 Screen에서, ViewModel은 idToken만 받음
+        data class GoogleLogin(val idToken: String) : Intent
+        data object GoogleLoginCancelled : Intent
     }
 
     sealed interface SideEffect {
