@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.domain.usecase.DeleteRecordUseCase
 import com.jinsupark.helpumta.domain.usecase.GetCurrentUserIdUseCase
 import com.jinsupark.helpumta.domain.usecase.GetGroupDetailUseCase
+import com.jinsupark.helpumta.domain.usecase.GetGroupStatsUseCase
 import com.jinsupark.helpumta.domain.usecase.GetRecordsByGroupUseCase
 import com.jinsupark.helpumta.domain.usecase.HasWroteTodayUseCase
 import com.jinsupark.helpumta.domain.usecase.LeaveGroupUseCase
@@ -28,7 +29,8 @@ class GroupDetailViewModel @Inject constructor(
     private val hasWroteTodayUseCase: HasWroteTodayUseCase,
     private val leaveGroupUseCase: LeaveGroupUseCase,
     private val getCurrentUserIdUseCase: GetCurrentUserIdUseCase,
-    private val deleteRecordUseCase: DeleteRecordUseCase
+    private val deleteRecordUseCase: DeleteRecordUseCase,
+    private val getGroupStatsUseCase: GetGroupStatsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupDetailContract.UiState())
@@ -59,6 +61,7 @@ class GroupDetailViewModel @Inject constructor(
                     )
                 }
             }
+            is GroupDetailContract.Intent.SelectTab -> selectTab(intent.tab)
         }
     }
 
@@ -174,7 +177,8 @@ class GroupDetailViewModel @Inject constructor(
         if (groupId.isBlank()) return
 
         val today = startOfDay(System.currentTimeMillis())
-        _uiState.update { it.copy(selectedDate = today, recordsErrorMessage = null) }
+        // 기록이 새로 작성됐을 수 있으니 통계 캐시도 무효화
+        _uiState.update { it.copy(selectedDate = today, recordsErrorMessage = null, stats = null) }
 
         viewModelScope.launch {
             supervisorScope {
@@ -193,7 +197,6 @@ class GroupDetailViewModel @Inject constructor(
             }
         }
     }
-
     // --- 날짜 헬퍼 ---
 
     private fun startOfDay(millis: Long): Long =
@@ -245,7 +248,9 @@ class GroupDetailViewModel @Inject constructor(
                         state.copy(
                             records = state.records.filter { it.id != recordId },
                             // 오늘 기록을 지웠으면 다시 작성 가능
-                            hasWroteToday = if (wasToday) false else state.hasWroteToday
+                            hasWroteToday = if (wasToday) false else state.hasWroteToday,
+                            // 기록이 바뀌었으니 통계 캐시 무효화 (다음 통계 탭 진입 시 재조회)
+                            stats = null
                         )
                     }
                     _sideEffect.emit(GroupDetailContract.SideEffect.ShowToast("기록을 삭제했어요"))
@@ -264,5 +269,38 @@ class GroupDetailViewModel @Inject constructor(
         val calB = Calendar.getInstance().apply { timeInMillis = b }
         return calA.get(Calendar.YEAR) == calB.get(Calendar.YEAR) &&
                 calA.get(Calendar.DAY_OF_YEAR) == calB.get(Calendar.DAY_OF_YEAR)
+    }
+
+    private fun selectTab(tab: GroupDetailContract.Tab) {
+        _uiState.update { it.copy(selectedTab = tab) }
+
+        // 통계 탭 첫 진입에만 로드 (이후엔 캐싱된 값 사용)
+        if (tab == GroupDetailContract.Tab.STATS &&
+            _uiState.value.stats == null &&
+            !_uiState.value.isStatsLoading
+        ) {
+            loadStats()
+        }
+    }
+
+    private fun loadStats() {
+        val groupId = _uiState.value.groupId
+        if (groupId.isBlank()) return
+
+        _uiState.update { it.copy(isStatsLoading = true, statsErrorMessage = null) }
+
+        viewModelScope.launch {
+            getGroupStatsUseCase(groupId).fold(
+                onSuccess = { stats ->
+                    _uiState.update { it.copy(isStatsLoading = false, stats = stats) }
+                },
+                onFailure = {
+                    _uiState.update { it.copy(
+                        isStatsLoading = false,
+                        statsErrorMessage = "통계를 불러오지 못했습니다"
+                    )}
+                }
+            )
+        }
     }
 }

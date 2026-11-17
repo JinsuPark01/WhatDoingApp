@@ -1,9 +1,12 @@
 package com.jinsupark.helpumta.ui.screen.group
 
 import com.jinsupark.helpumta.domain.model.Group
+import com.jinsupark.helpumta.domain.model.GroupStats
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 
 object GroupDetailContract {
+
+    enum class Tab { RECORDS, STATS }
 
     data class UiState(
         val groupId: String = "",
@@ -15,7 +18,13 @@ object GroupDetailContract {
         val errorMessage: String? = null,
         val recordsErrorMessage: String? = null,
         val isLeaving: Boolean = false,
-        val selectedDate: Long = 0L   // 선택된 날짜 (로컬 00:00 millis)
+        val selectedDate: Long = 0L,   // 선택된 날짜 (로컬 00:00 millis)
+
+        // 통계 탭
+        val selectedTab: Tab = Tab.RECORDS,
+        val stats: GroupStats? = null,          // null이면 아직 미로드
+        val isStatsLoading: Boolean = false,
+        val statsErrorMessage: String? = null
     )
 
     sealed interface Intent {
@@ -27,6 +36,7 @@ object GroupDetailContract {
         data object RefreshToToday : Intent
         data class DeleteRecord(val recordId: String) : Intent
         data object AlreadyWroteToday : Intent
+        data class SelectTab(val tab: Tab) : Intent
     }
 
     sealed interface SideEffect {

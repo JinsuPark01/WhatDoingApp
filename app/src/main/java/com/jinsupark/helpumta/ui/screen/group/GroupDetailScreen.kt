@@ -32,6 +32,7 @@ import com.jinsupark.helpumta.domain.model.Group
 import com.jinsupark.helpumta.domain.model.GroupPolicy
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 import com.jinsupark.helpumta.ui.screen.group.components.RecordCard
+import com.jinsupark.helpumta.ui.screen.group.components.StatsContent
 import com.jinsupark.helpumta.ui.theme.DisabledGray
 import com.jinsupark.helpumta.ui.theme.OnDisabledGray
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
@@ -183,7 +184,10 @@ private fun GroupDetailContent(
             )
         },
         floatingActionButton = {
-            if (uiState.group != null) {
+            // 기록 탭에서만 노출 (통계 탭은 날짜 개념이 없음)
+            if (uiState.group != null &&
+                uiState.selectedTab == GroupDetailContract.Tab.RECORDS
+            ) {
                 FloatingActionButton(
                     onClick = {
                         if (uiState.hasWroteToday) {
@@ -230,75 +234,136 @@ private fun GroupDetailContent(
                 uiState.group != null -> {
                     Column(modifier = Modifier.fillMaxSize()) {
 
-                        // 날짜 네비게이션 바
-                        DateNavigationBar(
-                            selectedDate = uiState.selectedDate,
-                            onPrevDay = { onIntent(GroupDetailContract.Intent.MoveDay(-1)) },
-                            onNextDay = { onIntent(GroupDetailContract.Intent.MoveDay(1)) },
-                            onDateClick = { showDatePicker = true }
-                        )
-                        HorizontalDivider()
+                        // 탭
+                        TabRow(
+                            selectedTabIndex = uiState.selectedTab.ordinal
+                        ) {
+                            Tab(
+                                selected = uiState.selectedTab == GroupDetailContract.Tab.RECORDS,
+                                onClick = {
+                                    onIntent(
+                                        GroupDetailContract.Intent.SelectTab(
+                                            GroupDetailContract.Tab.RECORDS
+                                        )
+                                    )
+                                },
+                                text = { Text("기록") }
+                            )
+                            Tab(
+                                selected = uiState.selectedTab == GroupDetailContract.Tab.STATS,
+                                onClick = {
+                                    onIntent(
+                                        GroupDetailContract.Intent.SelectTab(
+                                            GroupDetailContract.Tab.STATS
+                                        )
+                                    )
+                                },
+                                text = { Text("통계") }
+                            )
+                        }
 
-                        when {
-                            uiState.recordsErrorMessage != null -> {
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer
-                                    )
-                                ) {
-                                    Text(
-                                        text = uiState.recordsErrorMessage,
-                                        modifier = Modifier.padding(16.dp),
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
+                        when (uiState.selectedTab) {
+                            GroupDetailContract.Tab.RECORDS -> {
+                                // 날짜 네비게이션 바
+                                DateNavigationBar(
+                                    selectedDate = uiState.selectedDate,
+                                    onPrevDay = { onIntent(GroupDetailContract.Intent.MoveDay(-1)) },
+                                    onNextDay = { onIntent(GroupDetailContract.Intent.MoveDay(1)) },
+                                    onDateClick = { showDatePicker = true }
+                                )
+                                HorizontalDivider()
+
+                                when {
+                                    uiState.recordsErrorMessage != null -> {
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.errorContainer
+                                            )
+                                        ) {
+                                            Text(
+                                                text = uiState.recordsErrorMessage,
+                                                modifier = Modifier.padding(16.dp),
+                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    }
+                                    uiState.records.isEmpty() -> {
+                                        val isToday = isSameDay(uiState.selectedDate, System.currentTimeMillis())
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (isToday) {
+                                                    "아직 오늘 기록이 없어요\n첫 기록을 남겨보세요!"
+                                                } else {
+                                                    "이 날에는 운동 기록이 없어요"
+                                                },
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    else -> {
+                                        LazyColumn(
+                                            contentPadding = PaddingValues(16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            items(
+                                                items = uiState.records,
+                                                key = { it.id }
+                                            ) { record ->
+                                                val isMine = record.userId == uiState.currentUserId
+                                                val canEdit = isMine &&
+                                                        isSameDay(record.createdAt, System.currentTimeMillis())
+                                                RecordCard(
+                                                    record = record,
+                                                    canEdit = canEdit,
+                                                    canDelete = isMine,
+                                                    onEditClick = { onEditRecord(record.id) },
+                                                    onDeleteClick = { deleteTarget = record }
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                            uiState.records.isEmpty() -> {
-                                val isToday = isSameDay(uiState.selectedDate, System.currentTimeMillis())
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = if (isToday) {
-                                            "아직 오늘 기록이 없어요\n첫 기록을 남겨보세요!"
-                                        } else {
-                                            "이 날에는 운동 기록이 없어요"
-                                        },
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            else -> {
-                                LazyColumn(
-                                    contentPadding = PaddingValues(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    items(
-                                        items = uiState.records,
-                                        key = { it.id }
-                                    ) { record ->
-                                        val isMine = record.userId == uiState.currentUserId
-                                        val canEdit = isMine &&
-                                                isSameDay(record.createdAt, System.currentTimeMillis())
-                                        RecordCard(
-                                            record = record,
-                                            canEdit = canEdit,
-                                            canDelete = isMine,
-                                            onEditClick = { onEditRecord(record.id) },
-                                            onDeleteClick = { deleteTarget = record }
+
+                            GroupDetailContract.Tab.STATS -> {
+                                when {
+                                    uiState.isStatsLoading -> {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator()
+                                        }
+                                    }
+                                    uiState.statsErrorMessage != null -> {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = uiState.statsErrorMessage,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                    uiState.stats != null -> {
+                                        StatsContent(
+                                            stats = uiState.stats,
+                                            todayIndex = todayDayIndex()
                                         )
                                     }
                                 }
                             }
                         }
                     }
-                }
-            }
+                }            }
         }
     }
 
@@ -438,6 +503,12 @@ private fun isSameDay(a: Long, b: Long): Boolean {
     val calB = Calendar.getInstance().apply { timeInMillis = b }
     return calA.get(Calendar.YEAR) == calB.get(Calendar.YEAR) &&
             calA.get(Calendar.DAY_OF_YEAR) == calB.get(Calendar.DAY_OF_YEAR)
+}
+
+// 오늘 요일 (월=0 ... 일=6)
+private fun todayDayIndex(): Int {
+    val dow = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+    return (dow + 5) % 7
 }
 
 @Preview(showBackground = true, showSystemUi = true)
