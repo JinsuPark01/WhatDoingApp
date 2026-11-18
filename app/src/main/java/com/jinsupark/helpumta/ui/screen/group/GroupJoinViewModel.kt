@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.domain.usecase.GetGroupDetailUseCase
 import com.jinsupark.helpumta.domain.usecase.GetGroupsUseCase
 import com.jinsupark.helpumta.domain.usecase.JoinGroupUseCase
+import com.jinsupark.helpumta.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +19,8 @@ import javax.inject.Inject
 class GroupJoinViewModel @Inject constructor(
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
     private val getGroupsUseCase: GetGroupsUseCase,
-    private val joinGroupUseCase: JoinGroupUseCase
+    private val joinGroupUseCase: JoinGroupUseCase,
+    private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupJoinContract.UiState())
@@ -50,7 +52,7 @@ class GroupJoinViewModel @Inject constructor(
 
             // 이 화면은 두 경로로 들어온다.
             //  1) 초대 링크 (https://.../group/{id})  — 보통 비멤버
-            //  2) 리마인더 알림 탭                    — 항상 멤버
+            //  2) 리마인더 알림·위젯 탭                — 항상 멤버
             // 이미 멤버라면 "참여하시겠습니까?"를 보여줄 이유가 없으므로 상세로 넘긴다.
             //
             // 조회가 실패하면 차단하지 않고 기존 조인 흐름으로 진행한다.
@@ -106,8 +108,10 @@ class GroupJoinViewModel @Inject constructor(
                             }
                         )
                     }
-                    // joined를 토스트에도 반영한다.
-                    // 기존 코드는 이미 멤버여도 "참여했어요!"를 띄워 거짓 피드백을 줬다.
+
+                    // 그룹 목록이 실제로 바뀐 경우에만 위젯 갱신
+                    if (joined) widgetUpdater.refresh()
+
                     _sideEffect.emit(
                         GroupJoinContract.SideEffect.ShowToast(
                             if (joined) "그룹에 참여했어요!" else "이미 참여한 그룹이에요"

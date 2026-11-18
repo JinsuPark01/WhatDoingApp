@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.domain.usecase.GetGroupsUseCase
 import com.jinsupark.helpumta.domain.usecase.GetHomeLayoutUseCase
 import com.jinsupark.helpumta.domain.usecase.RegisterFcmTokenUseCase
+import com.jinsupark.helpumta.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +19,8 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val getGroupsUseCase: GetGroupsUseCase,
     private val getHomeLayoutUseCase: GetHomeLayoutUseCase,
-    private val registerFcmTokenUseCase: RegisterFcmTokenUseCase
+    private val registerFcmTokenUseCase: RegisterFcmTokenUseCase,
+    private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeContract.UiState())
@@ -36,6 +38,7 @@ class HomeViewModel @Inject constructor(
         observeHomeLayout()
         handleIntent(HomeContract.Intent.LoadGroups)
         registerFcmToken()
+        refreshWidgets()
     }
 
     fun handleIntent(intent: HomeContract.Intent) {
@@ -53,6 +56,14 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             // 실패해도 사용자에게 알리지 않음 (알림 수신 여부는 사용자가 한 행동이 아님)
             registerFcmTokenUseCase()
+        }
+    }
+
+    // 로그아웃 상태에서 로그인하면 위젯이 "로그인이 필요해요"인 채로 남는다.
+    // init은 세션당 1회 수준이라 비용 부담 없이 그 경로를 덮을 수 있다.
+    private fun refreshWidgets() {
+        viewModelScope.launch {
+            widgetUpdater.refresh()
         }
     }
 

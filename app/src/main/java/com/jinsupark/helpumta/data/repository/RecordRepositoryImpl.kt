@@ -8,6 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.storageMetadata
+import com.jinsupark.helpumta.data.util.ImageCleaner
 import com.jinsupark.helpumta.data.util.ImageCompressor
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
@@ -17,7 +18,8 @@ import javax.inject.Inject
 class RecordRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage,
-    private val imageCompressor: ImageCompressor
+    private val imageCompressor: ImageCompressor,
+    private val imageCleaner: ImageCleaner          // ← 추가
 ) : RecordRepository {
 
     override suspend fun getRecordsByGroup(
@@ -170,9 +172,9 @@ class RecordRepositoryImpl @Inject constructor(
                 )
             ).await()
 
-            // Firestore 반영 성공 후, 더 이상 참조되지 않는 기존 이미지 정리
+            // 더 이상 참조되지 않는 기존 이미지는 백그라운드에서 정리
             if (oldImageUrl.isNotBlank() && oldImageUrl != newImageUrl) {
-                runCatching { storage.getReferenceFromUrl(oldImageUrl).delete().await() }
+                imageCleaner.delete(oldImageUrl)
             }
 
             Result.success(Unit)
@@ -232,11 +234,8 @@ class RecordRepositoryImpl @Inject constructor(
             // Firestore 문서 먼저 삭제 → 실패해도 이미지가 남아 기록이 깨지지 않음
             docRef.delete().await()
 
-            // 문서 삭제 성공 후 이미지 정리
-            if (imageUrl.isNotBlank()) {
-                runCatching { storage.getReferenceFromUrl(imageUrl).delete().await() }
-            }
-
+            // 이미지 정리는 백그라운드로. 호출자를 기다리게 하지 않는다
+            imageCleaner.delete(imageUrl)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -260,12 +259,8 @@ class RecordRepositoryImpl @Inject constructor(
                 // Firestore 문서 먼저 삭제
                 doc.reference.delete().await()
 
-                // 문서 삭제 성공 후 이미지 정리
-                if (imageUrl.isNotBlank()) {
-                    runCatching {
-                        storage.getReferenceFromUrl(imageUrl).delete().await()
-                    }
-                }
+                // 이미지 정리는 백그라운드로
+                imageCleaner.delete(imageUrl)
             }
 
             Result.success(Unit)

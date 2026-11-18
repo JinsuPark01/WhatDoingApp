@@ -10,14 +10,15 @@ import java.util.UUID
 import javax.inject.Inject
 import com.jinsupark.helpumta.data.mapper.toGroup
 import com.jinsupark.helpumta.domain.model.GroupPolicy
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.storage.storageMetadata
+import com.jinsupark.helpumta.data.util.ImageCleaner
 import com.jinsupark.helpumta.data.util.ImageCompressor
 
 class GroupRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage,
-    private val imageCompressor: ImageCompressor
+    private val imageCompressor: ImageCompressor,
+    private val imageCleaner: ImageCleaner
 ) : GroupRepository {
 
     override suspend fun getGroups(userId: String): Result<List<Group>> {
@@ -150,18 +151,15 @@ class GroupRepositoryImpl @Inject constructor(
                 }
             }.await()
 
-            // 그룹이 실제로 삭제된 경우에만 대표 이미지 정리
-            if (deletedImageUrl != null) {
-                runCatching {
-                    storage.getReferenceFromUrl(deletedImageUrl).delete().await()
-                }
-            }
+            // 그룹이 실제로 삭제된 경우에만 대표 이미지 정리 (백그라운드)
+            imageCleaner.delete(deletedImageUrl.orEmpty())
 
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
     override suspend fun getMemberIds(groupId: String): Result<List<String>> {
         return try {
             val doc = firestore.collection("groups").document(groupId).get().await()

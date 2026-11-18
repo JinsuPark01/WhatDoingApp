@@ -6,10 +6,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    //firebase
+    // 버전은 루트 build.gradle.kts에 선언됨
     id("com.google.gms.google-services")
-
-    //Hilt
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
 }
@@ -67,61 +65,56 @@ android {
 
 dependencies {
 
+    // ───── AndroidX 기본 ─────
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.androidx.datastore.preferences)
+
+    // ───── Compose ─────
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.navigation.compose)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // ───── 위젯 (Glance) ─────
+    implementation(libs.androidx.glance.appwidget)
+
+    // ───── DI (Hilt) ─────
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    // ───── Firebase ─────
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.appcheck.playintegrity)
+    debugImplementation(libs.firebase.appcheck.debug)
+
+    // ───── 이미지 ─────
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+
+    // ───── 인증 (Credential Manager) ─────
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+
+    // ───── 테스트 ─────
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
-
-    //firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-storage")
-
-    //hilt
-    implementation("com.google.dagger:hilt-android:2.57.1")
-    ksp("com.google.dagger:hilt-android-compiler:2.57.1")
-
-    // Hilt + Compose Navigation
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-
-    //coil
-    implementation("io.coil-kt.coil3:coil-compose:3.1.0")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.1.0")
-
-    implementation("androidx.navigation:navigation-compose:2.8.5")
-
-    //
-    implementation("androidx.compose.material:material-icons-extended")
-
-    // Credential Manager (구글 로그인용)
-    implementation("androidx.credentials:credentials:1.3.0")
-    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
-    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
-
-    //
-    implementation("androidx.core:core-splashscreen:1.0.1")
-
-    //
-    implementation("androidx.exifinterface:exifinterface:1.3.7")
-    // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
-    //
-    implementation("com.google.firebase:firebase-appcheck-playintegrity")
-    debugImplementation("com.google.firebase:firebase-appcheck-debug")
-
-    //FCM
-    implementation("com.google.firebase:firebase-messaging")
 }

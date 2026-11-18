@@ -51,6 +51,8 @@
                     android:pathPrefix="/group" />
             </intent-filter>
         </activity>
+
+        <!-- FCM 수신 -->
         <service
             android:name=".data.fcm.HelpumtaMessagingService"
             android:exported="false">
@@ -62,6 +64,43 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="workout_reminder" />
+
+        <!-- 위젯 -->
+        <receiver
+            android:name=".widget.GroupStatusWidgetReceiver"
+            android:label="@string/widget_group_status_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/group_status_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TodaySummaryWidgetReceiver"
+            android:label="@string/widget_today_summary_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_summary_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WeeklyWidgetReceiver"
+            android:label="@string/widget_weekly_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weekly_widget_info" />
+        </receiver>
     </application>
 
 </manifest>

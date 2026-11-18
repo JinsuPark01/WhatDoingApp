@@ -10,6 +10,7 @@ import com.jinsupark.helpumta.domain.usecase.GetUserProfileUseCase
 import com.jinsupark.helpumta.domain.usecase.LogoutUseCase
 import com.jinsupark.helpumta.domain.usecase.ReauthenticateUseCase
 import com.jinsupark.helpumta.domain.usecase.SetHomeLayoutUseCase
+import com.jinsupark.helpumta.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +28,8 @@ class MyPageViewModel @Inject constructor(
     private val reauthenticateUseCase: ReauthenticateUseCase,
     private val deleteAccountUseCase: DeleteAccountUseCase,
     private val getHomeLayoutUseCase: GetHomeLayoutUseCase,
-    private val setHomeLayoutUseCase: SetHomeLayoutUseCase
+    private val setHomeLayoutUseCase: SetHomeLayoutUseCase,
+    private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MyPageContract.UiState())
@@ -97,6 +99,9 @@ class MyPageViewModel @Inject constructor(
     private fun logout() {
         viewModelScope.launch {
             logoutUseCase()
+            // 로그아웃 '후'에 갱신해야 위젯이 "로그인이 필요해요"로 바뀐다.
+            // 안 하면 홈 화면에 이전 사용자의 그룹명과 기록 현황이 그대로 남는다.
+            widgetUpdater.refresh()
             _sideEffect.emit(MyPageContract.SideEffect.NavigateToLogin)
         }
     }
@@ -115,6 +120,7 @@ class MyPageViewModel @Inject constructor(
                 deleteAccountUseCase().fold(
                     onSuccess = {
                         _uiState.update { it.copy(isDeleting = false) }
+                        widgetUpdater.refresh()
                         _sideEffect.emit(MyPageContract.SideEffect.NavigateToLogin)
                     },
                     onFailure = {

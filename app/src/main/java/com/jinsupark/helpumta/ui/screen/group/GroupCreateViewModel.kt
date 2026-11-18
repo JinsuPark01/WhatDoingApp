@@ -3,6 +3,7 @@ package com.jinsupark.helpumta.ui.screen.group
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.domain.usecase.CreateGroupUseCase
+import com.jinsupark.helpumta.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class GroupCreateViewModel @Inject constructor(
-    private val createGroupUseCase: CreateGroupUseCase
+    private val createGroupUseCase: CreateGroupUseCase,
+    private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupCreateContract.UiState())
@@ -54,6 +56,8 @@ class GroupCreateViewModel @Inject constructor(
             result.fold(
                 onSuccess = { groupId ->
                     _uiState.update { it.copy(isLoading = false) }
+                    // 그룹 목록이 바뀌었으므로 위젯 갱신
+                    widgetUpdater.refresh()
                     _sideEffect.emit(GroupCreateContract.SideEffect.NavigateToGroup(groupId))
                 },
                 onFailure = {

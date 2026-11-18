@@ -10,6 +10,7 @@ import com.jinsupark.helpumta.domain.usecase.GetMyRecordDatesUseCase
 import com.jinsupark.helpumta.domain.usecase.GetRecordsByGroupUseCase
 import com.jinsupark.helpumta.domain.usecase.HasWroteTodayUseCase
 import com.jinsupark.helpumta.domain.usecase.LeaveGroupUseCase
+import com.jinsupark.helpumta.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -31,7 +32,8 @@ class GroupDetailViewModel @Inject constructor(
     private val getCurrentUserIdUseCase: GetCurrentUserIdUseCase,
     private val deleteRecordUseCase: DeleteRecordUseCase,
     private val getGroupStatsUseCase: GetGroupStatsUseCase,
-    private val getMyRecordDatesUseCase: GetMyRecordDatesUseCase
+    private val getMyRecordDatesUseCase: GetMyRecordDatesUseCase,
+    private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupDetailContract.UiState())
@@ -161,6 +163,7 @@ class GroupDetailViewModel @Inject constructor(
             leaveGroupUseCase(groupId).fold(
                 onSuccess = {
                     _uiState.update { it.copy(isLeaving = false) }
+                    widgetUpdater.refresh()          // ← 추가
                     _sideEffect.emit(GroupDetailContract.SideEffect.NavigateToHome)
                 },
                 onFailure = {
@@ -172,7 +175,6 @@ class GroupDetailViewModel @Inject constructor(
             )
         }
     }
-
     private fun refreshToToday() {
         val groupId = _uiState.value.groupId
         if (groupId.isBlank()) return
@@ -200,6 +202,7 @@ class GroupDetailViewModel @Inject constructor(
                     recordsErrorMessage = if (recordsResult.isFailure) "기록을 불러오지 못했습니다" else null,
                     hasWroteToday = wroteResult.getOrDefault(false)
                 )}
+                widgetUpdater.refresh()
             }
         }
     }
@@ -316,6 +319,7 @@ class GroupDetailViewModel @Inject constructor(
                             calendarMarks = emptyMap()
                         )
                     }
+                    widgetUpdater.refresh()
                     _sideEffect.emit(GroupDetailContract.SideEffect.ShowToast("기록을 삭제했어요"))
                 },
                 onFailure = {
