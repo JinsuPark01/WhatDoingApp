@@ -33,6 +33,7 @@ import com.jinsupark.helpumta.domain.model.GroupPolicy
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 import com.jinsupark.helpumta.ui.screen.group.components.RecordCard
 import com.jinsupark.helpumta.ui.screen.group.components.StatsContent
+import com.jinsupark.helpumta.ui.screen.group.components.RecordCalendarDialog
 import com.jinsupark.helpumta.ui.theme.DisabledGray
 import com.jinsupark.helpumta.ui.theme.OnDisabledGray
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
@@ -269,7 +270,10 @@ private fun GroupDetailContent(
                                     selectedDate = uiState.selectedDate,
                                     onPrevDay = { onIntent(GroupDetailContract.Intent.MoveDay(-1)) },
                                     onNextDay = { onIntent(GroupDetailContract.Intent.MoveDay(1)) },
-                                    onDateClick = { showDatePicker = true }
+                                    onDateClick = {
+                                        onIntent(GroupDetailContract.Intent.OpenCalendar)  // 해당 달 표시 로드
+                                        showDatePicker = true
+                                    }
                                 )
                                 HorizontalDivider()
 
@@ -417,35 +421,22 @@ private fun GroupDetailContent(
         )
     }
 
-    // 날짜 선택 달력
+    // 날짜 선택 달력 (내 기록이 있는 날에 점 표시)
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = uiState.selectedDate.takeIf { it > 0L },
-            selectableDates = object : SelectableDates {
-                // 오늘(로컬 끝)까지만 선택 가능 — 미래 차단
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    return utcTimeMillis <= System.currentTimeMillis()
-                }
-            }
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        onIntent(GroupDetailContract.Intent.SelectDate(millis))
-                    }
-                    showDatePicker = false
-                }) { Text("확인") }
+        RecordCalendarDialog(
+            selectedDate = uiState.selectedDate,
+            displayedMonth = uiState.calendarMonth,
+            markedDays = uiState.calendarMarks[uiState.calendarMonth] ?: emptySet(),
+            isLoading = uiState.isCalendarLoading,
+            onPrevMonth = { onIntent(GroupDetailContract.Intent.MoveMonth(-1)) },
+            onNextMonth = { onIntent(GroupDetailContract.Intent.MoveMonth(1)) },
+            onSelectDate = { millis ->
+                onIntent(GroupDetailContract.Intent.SelectDate(millis))
+                showDatePicker = false   // 선택 즉시 닫힘 (확인 버튼 불필요)
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("취소") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-}
+            onDismiss = { showDatePicker = false }
+        )
+    }}
 
 @Composable
 private fun DateNavigationBar(

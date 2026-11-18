@@ -6,6 +6,7 @@ import com.jinsupark.helpumta.domain.usecase.DeleteRecordUseCase
 import com.jinsupark.helpumta.domain.usecase.GetCurrentUserIdUseCase
 import com.jinsupark.helpumta.domain.usecase.GetGroupDetailUseCase
 import com.jinsupark.helpumta.domain.usecase.GetGroupStatsUseCase
+import com.jinsupark.helpumta.domain.usecase.GetMyRecordDatesUseCase
 import com.jinsupark.helpumta.domain.usecase.GetRecordsByGroupUseCase
 import com.jinsupark.helpumta.domain.usecase.HasWroteTodayUseCase
 import com.jinsupark.helpumta.domain.usecase.LeaveGroupUseCase
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import java.util.Calendar
-import java.util.TimeZone
 import javax.inject.Inject
 
 @HiltViewModel
@@ -30,7 +30,8 @@ class GroupDetailViewModel @Inject constructor(
     private val leaveGroupUseCase: LeaveGroupUseCase,
     private val getCurrentUserIdUseCase: GetCurrentUserIdUseCase,
     private val deleteRecordUseCase: DeleteRecordUseCase,
-    private val getGroupStatsUseCase: GetGroupStatsUseCase
+    private val getGroupStatsUseCase: GetGroupStatsUseCase,
+    private val getMyRecordDatesUseCase: GetMyRecordDatesUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GroupDetailContract.UiState())
@@ -44,10 +45,7 @@ class GroupDetailViewModel @Inject constructor(
             is GroupDetailContract.Intent.LoadGroupDetail -> loadGroupDetail(intent.groupId)
             GroupDetailContract.Intent.NavigateToRecord -> navigateToRecord()
             GroupDetailContract.Intent.LeaveGroup -> leaveGroup()
-            is GroupDetailContract.Intent.SelectDate -> {
-                val start = utcMillisToLocalStartOfDay(intent.utcMillis)
-                changeDate(start)
-            }
+            is GroupDetailContract.Intent.SelectDate -> changeDate(intent.startMillis)
             is GroupDetailContract.Intent.MoveDay -> {
                 val start = addDays(_uiState.value.selectedDate, intent.offset)
                 changeDate(start)
@@ -62,6 +60,8 @@ class GroupDetailViewModel @Inject constructor(
                 }
             }
             is GroupDetailContract.Intent.SelectTab -> selectTab(intent.tab)
+            GroupDetailContract.Intent.OpenCalendar -> openCalendar()
+            is GroupDetailContract.Intent.MoveMonth -> moveMonth(intent.offset)
         }
     }
 
@@ -82,7 +82,8 @@ class GroupDetailViewModel @Inject constructor(
                 currentUserId = getCurrentUserIdUseCase(),   // UseCase 경유
                 selectedDate = today,
                 errorMessage = null,
-                recordsErrorMessage = null
+                recordsErrorMessage = null,
+                calendarMarks = emptyMap()
             )}
 
             supervisorScope {
@@ -117,7 +118,7 @@ class GroupDetailViewModel @Inject constructor(
         }
     }
 
-    // 날짜 변경 공통 (달력/화살표 둘 다 여기로)
+    // 날짜 변경 공통 (캘린더/화살표 둘 다 여기로)
     private fun changeDate(startMillis: Long) {
         val groupId = _uiState.value.groupId
         if (groupId.isBlank()) return
@@ -177,8 +178,13 @@ class GroupDetailViewModel @Inject constructor(
         if (groupId.isBlank()) return
 
         val today = startOfDay(System.currentTimeMillis())
-        // 기록이 새로 작성됐을 수 있으니 통계 캐시도 무효화
-        _uiState.update { it.copy(selectedDate = today, recordsErrorMessage = null, stats = null) }
+        // 기록이 새로 작성됐을 수 있으니 통계·캘린더 캐시도 무효화
+        _uiState.update { it.copy(
+            selectedDate = today,
+            recordsErrorMessage = null,
+            stats = null,
+            calendarMarks = emptyMap()
+        )}
 
         viewModelScope.launch {
             supervisorScope {
@@ -197,6 +203,52 @@ class GroupDetailViewModel @Inject constructor(
             }
         }
     }
+
+    // --- 캘린더 ---
+
+    private fun openCalendar() {
+        val base = _uiState.value.selectedDate.takeIf { it > 0L } ?: System.currentTimeMillis()
+        val month = startOfMonth(base)
+        _uiState.update { it.copy(calendarMonth = month) }
+        loadCalendarMarks(month)
+    }
+
+    private fun moveMonth(offset: Int) {
+        val next = addMonths(_uiState.value.calendarMonth, offset)
+        // 미래 달 차단
+        if (next > startOfMonth(System.currentTimeMillis())) return
+
+        _uiState.update { it.copy(calendarMonth = next) }
+        loadCalendarMarks(next)
+    }
+
+    private fun loadCalendarMarks(month: Long) {
+        val groupId = _uiState.value.groupId
+        if (groupId.isBlank()) return
+
+        // 이미 조회한 달이면 재조회하지 않는다 (통계 캐싱과 같은 방식)
+        if (_uiState.value.calendarMarks.containsKey(month)) return
+
+        _uiState.update { it.copy(isCalendarLoading = true) }
+
+        viewModelScope.launch {
+            getMyRecordDatesUseCase(groupId, month, startOfNextMonth(month)).fold(
+                onSuccess = { createdAtList ->
+                    val days = createdAtList.map { dayOfMonth(it) }.toSet()
+                    _uiState.update { it.copy(
+                        isCalendarLoading = false,
+                        calendarMarks = it.calendarMarks + (month to days)
+                    )}
+                },
+                onFailure = {
+                    // 실패해도 날짜 선택 자체는 가능하므로 에러를 노출하지 않는다.
+                    // 점만 안 찍힐 뿐이고, 다음에 열면 다시 시도된다.
+                    _uiState.update { it.copy(isCalendarLoading = false) }
+                }
+            )
+        }
+    }
+
     // --- 날짜 헬퍼 ---
 
     private fun startOfDay(millis: Long): Long =
@@ -220,21 +272,31 @@ class GroupDetailViewModel @Inject constructor(
             add(Calendar.DAY_OF_MONTH, offset)
         }.timeInMillis
 
-    // DatePicker가 준 UTC millis → 로컬 그 날짜의 00:00 (시간대 어긋남 방지)
-    private fun utcMillisToLocalStartOfDay(utcMillis: Long): Long {
-        val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            timeInMillis = utcMillis
-        }
-        return Calendar.getInstance().apply {
-            clear()
-            set(
-                utc.get(Calendar.YEAR),
-                utc.get(Calendar.MONTH),
-                utc.get(Calendar.DAY_OF_MONTH),
-                0, 0, 0
-            )
+    private fun startOfMonth(millis: Long): Long =
+        Calendar.getInstance().apply {
+            timeInMillis = millis
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
         }.timeInMillis
-    }
+
+    private fun startOfNextMonth(monthStart: Long): Long =
+        Calendar.getInstance().apply {
+            timeInMillis = monthStart
+            add(Calendar.MONTH, 1)
+        }.timeInMillis
+
+    private fun addMonths(monthStart: Long, offset: Int): Long =
+        Calendar.getInstance().apply {
+            timeInMillis = monthStart
+            add(Calendar.MONTH, offset)
+        }.timeInMillis
+
+    private fun dayOfMonth(millis: Long): Int =
+        Calendar.getInstance().apply { timeInMillis = millis }
+            .get(Calendar.DAY_OF_MONTH)
 
     private fun deleteRecord(recordId: String) {
         viewModelScope.launch {
@@ -249,8 +311,9 @@ class GroupDetailViewModel @Inject constructor(
                             records = state.records.filter { it.id != recordId },
                             // 오늘 기록을 지웠으면 다시 작성 가능
                             hasWroteToday = if (wasToday) false else state.hasWroteToday,
-                            // 기록이 바뀌었으니 통계 캐시 무효화 (다음 통계 탭 진입 시 재조회)
-                            stats = null
+                            // 기록이 바뀌었으니 통계·캘린더 캐시 무효화
+                            stats = null,
+                            calendarMarks = emptyMap()
                         )
                     }
                     _sideEffect.emit(GroupDetailContract.SideEffect.ShowToast("기록을 삭제했어요"))

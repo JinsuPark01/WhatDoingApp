@@ -24,19 +24,26 @@ object GroupDetailContract {
         val selectedTab: Tab = Tab.RECORDS,
         val stats: GroupStats? = null,          // null이면 아직 미로드
         val isStatsLoading: Boolean = false,
-        val statsErrorMessage: String? = null
+        val statsErrorMessage: String? = null,
+
+        // 캘린더
+        val calendarMonth: Long = 0L,                        // 표시 중인 달의 1일 00:00
+        val calendarMarks: Map<Long, Set<Int>> = emptyMap(), // 달 시작 millis → 기록이 있는 일(1~31)
+        val isCalendarLoading: Boolean = false
     )
 
     sealed interface Intent {
         data class LoadGroupDetail(val groupId: String) : Intent
         data object NavigateToRecord : Intent
         data object LeaveGroup : Intent
-        data class SelectDate(val utcMillis: Long) : Intent   // 달력에서 절대 날짜 선택
-        data class MoveDay(val offset: Int) : Intent          // 화살표 상대 이동
+        data class SelectDate(val startMillis: Long) : Intent  // 캘린더에서 선택 (로컬 00:00)
+        data class MoveDay(val offset: Int) : Intent           // 화살표 상대 이동
         data object RefreshToToday : Intent
         data class DeleteRecord(val recordId: String) : Intent
         data object AlreadyWroteToday : Intent
         data class SelectTab(val tab: Tab) : Intent
+        data object OpenCalendar : Intent                      // 캘린더 열기 — 해당 달 표시 로드
+        data class MoveMonth(val offset: Int) : Intent         // 캘린더 월 이동
     }
 
     sealed interface SideEffect {

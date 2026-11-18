@@ -8,6 +8,14 @@ interface RecordRepository {
         startMillis: Long,
         endMillis: Long
     ): Result<List<WorkoutRecord>>
+
+    // 캘린더 표시용 — 특정 기간에 내가 기록한 createdAt 목록
+    suspend fun getMyRecordDates(
+        groupId: String,
+        userId: String,
+        startMillis: Long,
+        endMillis: Long
+    ): Result<List<Long>>
     suspend fun hasWroteToday(groupId: String, userId: String): Result<Boolean>
 
     suspend fun createRecord(
@@ -33,5 +41,4 @@ interface RecordRepository {
     suspend fun getRecordById(recordId: String): Result<WorkoutRecord>
     suspend fun deleteRecord(recordId: String, currentUserId: String): Result<Unit>
     suspend fun deleteRecordsByUserInGroup(groupId: String, userId: String): Result<Unit>
-
 }

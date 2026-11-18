@@ -41,6 +41,29 @@ class RecordRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getMyRecordDates(
+        groupId: String,
+        userId: String,
+        startMillis: Long,
+        endMillis: Long
+    ): Result<List<Long>> {
+        return try {
+            // hasWroteToday와 같은 쿼리 모양(groupId=, userId=, createdAt 범위)이라
+            // 이미 만들어진 복합 인덱스를 그대로 재사용한다.
+            val snapshot = firestore.collection("records")
+                .whereEqualTo("groupId", groupId)
+                .whereEqualTo("userId", userId)
+                .whereGreaterThanOrEqualTo("createdAt", startMillis)
+                .whereLessThan("createdAt", endMillis)
+                .get()
+                .await()
+
+            Result.success(snapshot.documents.mapNotNull { it.getLong("createdAt") })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun hasWroteToday(groupId: String, userId: String): Result<Boolean> {
         return try {
             val todayStart = Calendar.getInstance().apply {
