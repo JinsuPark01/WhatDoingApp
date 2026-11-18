@@ -3,6 +3,7 @@ package com.jinsupark.helpumta.ui.screen.group
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.domain.usecase.GetGroupDetailUseCase
+import com.jinsupark.helpumta.domain.usecase.GetGroupsUseCase
 import com.jinsupark.helpumta.domain.usecase.JoinGroupUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -16,6 +17,7 @@ import javax.inject.Inject
 @HiltViewModel
 class GroupJoinViewModel @Inject constructor(
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
+    private val getGroupsUseCase: GetGroupsUseCase,
     private val joinGroupUseCase: JoinGroupUseCase
 ) : ViewModel() {
 
@@ -28,39 +30,56 @@ class GroupJoinViewModel @Inject constructor(
     fun handleIntent(intent: GroupJoinContract.Intent) {
         when (intent) {
             is GroupJoinContract.Intent.Initialize -> {
-                // 5번 - 같은 groupId만 막음 (다른 groupId는 갱신 허용)
+                // 같은 groupId만 막음 (다른 groupId는 갱신 허용)
                 if (_uiState.value.groupId == intent.groupId) return
-                loadGroupInfo(intent.groupId)
+                initialize(intent.groupId)
             }
             GroupJoinContract.Intent.SubmitJoin -> joinGroup()
         }
     }
 
-    private fun loadGroupInfo(groupId: String) {
+    private fun initialize(groupId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(
-                isLoading = true,
-                groupId = groupId,
-                errorMessage = null
-            )}
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    groupId = groupId,
+                    errorMessage = null
+                )
+            }
 
-            val result = getGroupDetailUseCase(groupId)
+            // 이 화면은 두 경로로 들어온다.
+            //  1) 초대 링크 (https://.../group/{id})  — 보통 비멤버
+            //  2) 리마인더 알림 탭                    — 항상 멤버
+            // 이미 멤버라면 "참여하시겠습니까?"를 보여줄 이유가 없으므로 상세로 넘긴다.
+            //
+            // 조회가 실패하면 차단하지 않고 기존 조인 흐름으로 진행한다.
+            // JoinGroupUseCase가 중복 가입을 막아주므로 최악의 경우에도 안전하다.
+            val alreadyMember = getGroupsUseCase()
+                .getOrNull()
+                ?.any { it.id == groupId } == true
 
-            result.fold(
-                onSuccess = { group ->
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        group = group
-                    )}
-                },
-                onFailure = {
-                    _uiState.update { it.copy(
-                        isLoading = false,
-                        errorMessage = "그룹을 찾을 수 없어요"
-                    )}
-                }
-            )
+            if (alreadyMember) {
+                // isLoading을 유지한 채 이동 → 조인 UI가 깜빡이지 않는다
+                _sideEffect.emit(GroupJoinContract.SideEffect.NavigateToGroup(groupId))
+                return@launch
+            }
+
+            loadGroupInfo(groupId)
         }
+    }
+
+    private suspend fun loadGroupInfo(groupId: String) {
+        getGroupDetailUseCase(groupId).fold(
+            onSuccess = { group ->
+                _uiState.update { it.copy(isLoading = false, group = group) }
+            },
+            onFailure = {
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = "그룹을 찾을 수 없어요")
+                }
+            }
+        )
     }
 
     private fun joinGroup() {
@@ -87,14 +106,22 @@ class GroupJoinViewModel @Inject constructor(
                             }
                         )
                     }
-                    _sideEffect.emit(GroupJoinContract.SideEffect.ShowToast("그룹에 참여했어요!"))
+                    // joined를 토스트에도 반영한다.
+                    // 기존 코드는 이미 멤버여도 "참여했어요!"를 띄워 거짓 피드백을 줬다.
+                    _sideEffect.emit(
+                        GroupJoinContract.SideEffect.ShowToast(
+                            if (joined) "그룹에 참여했어요!" else "이미 참여한 그룹이에요"
+                        )
+                    )
                     _sideEffect.emit(GroupJoinContract.SideEffect.NavigateToGroup(groupId))
                 },
                 onFailure = { e ->
-                    _uiState.update { it.copy(
-                        isJoining = false,
-                        errorMessage = e.message ?: "그룹 참여에 실패했어요"
-                    )}
+                    _uiState.update {
+                        it.copy(
+                            isJoining = false,
+                            errorMessage = e.message ?: "그룹 참여에 실패했어요"
+                        )
+                    }
                 }
             )
         }
