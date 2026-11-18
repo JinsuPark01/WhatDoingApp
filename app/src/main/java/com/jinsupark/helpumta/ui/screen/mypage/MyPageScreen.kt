@@ -18,6 +18,8 @@ import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.*
@@ -31,13 +33,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.BuildConfig
 import com.jinsupark.helpumta.data.auth.GoogleAuthClient
 import com.jinsupark.helpumta.domain.model.AuthProvider
 import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
+import com.jinsupark.helpumta.ui.util.openAppNotificationSettings
 import kotlinx.coroutines.launch
 
 @Composable
@@ -51,10 +58,31 @@ fun MyPageScreen(
     val context = LocalContext.current
     val activity = context as Activity
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }   // 삭제 확인
     var showPasswordDialog by remember { mutableStateOf(false) } // 이메일 비번 입력
+
+    // 알림 on/off는 앱이 따로 저장하지 않고 OS 설정을 단일 진실 소스로 쓴다.
+    // 앱 내 토글을 두면 OS 상태와 어긋나 "켜져 있는데 안 와요"가 생김.
+    var notificationsEnabled by remember {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+
+    // 시스템 설정에서 바꾸고 돌아왔을 때 화면이 거짓말하지 않도록 재진입마다 다시 읽는다
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationsEnabled =
+                    NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.sideEffect.collect { effect ->
@@ -69,8 +97,10 @@ fun MyPageScreen(
 
     MyPageContent(
         uiState = uiState,
+        notificationsEnabled = notificationsEnabled,
         onLogoutClick = { showLogoutDialog = true },
         onDeleteClick = { showDeleteDialog = true },
+        onNotificationClick = { context.openAppNotificationSettings() },
         onPrivacyClick = {
             context.startActivity(
                 Intent(
@@ -187,8 +217,10 @@ fun MyPageScreen(
 @Composable
 private fun MyPageContent(
     uiState: MyPageContract.UiState,
+    notificationsEnabled: Boolean,
     onLogoutClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onNotificationClick: () -> Unit,
     onPrivacyClick: () -> Unit,
     onNavigateBack: () -> Unit,
     onChangeHomeLayout: (HomeLayout) -> Unit
@@ -295,6 +327,36 @@ private fun MyPageContent(
                 }
             )
 
+            // 알림 — 상태 표시 + 시스템 설정 바로가기 (앱에 별도 저장 없음)
+            ListItem(
+                headlineContent = { Text("알림") },
+                supportingContent = {
+                    Text(
+                        text = if (notificationsEnabled) {
+                            "기록을 남기지 않은 날 저녁에 알려드려요"
+                        } else {
+                            "꺼져 있어요 · 탭하면 설정으로 이동"
+                        }
+                    )
+                },
+                leadingContent = {
+                    Icon(
+                        imageVector = if (notificationsEnabled) {
+                            Icons.Default.Notifications
+                        } else {
+                            Icons.Default.NotificationsOff
+                        },
+                        contentDescription = null,
+                        tint = if (notificationsEnabled) {
+                            LocalContentColor.current
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                },
+                modifier = Modifier.clickable(onClick = onNotificationClick)
+            )
+
             HorizontalDivider()
 
             // 로그아웃 (기존)
@@ -370,8 +432,30 @@ private fun MyPageContentPreview() {
                 nickname = "진수",
                 email = "jinsu@jinsupark.com"
             ),
+            notificationsEnabled = true,
             onLogoutClick = {},
             onDeleteClick = {},
+            onNotificationClick = {},
+            onPrivacyClick = {},
+            onNavigateBack = {},
+            onChangeHomeLayout = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "알림 꺼짐")
+@Composable
+private fun MyPageContentNotificationOffPreview() {
+    HelpumtaTheme {
+        MyPageContent(
+            uiState = MyPageContract.UiState(
+                nickname = "진수",
+                email = "jinsu@jinsupark.com"
+            ),
+            notificationsEnabled = false,
+            onLogoutClick = {},
+            onDeleteClick = {},
+            onNotificationClick = {},
             onPrivacyClick = {},
             onNavigateBack = {},
             onChangeHomeLayout = {}

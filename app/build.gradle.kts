@@ -121,4 +121,7 @@ dependencies {
     //
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
+
+    //FCM
+    implementation("com.google.firebase:firebase-messaging")
 }

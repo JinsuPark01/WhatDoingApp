@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.domain.usecase.GetGroupsUseCase
 import com.jinsupark.helpumta.domain.usecase.GetHomeLayoutUseCase
+import com.jinsupark.helpumta.domain.usecase.RegisterFcmTokenUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,8 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getGroupsUseCase: GetGroupsUseCase,
-    private val getHomeLayoutUseCase: GetHomeLayoutUseCase
+    private val getHomeLayoutUseCase: GetHomeLayoutUseCase,
+    private val registerFcmTokenUseCase: RegisterFcmTokenUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeContract.UiState())
@@ -25,9 +27,15 @@ class HomeViewModel @Inject constructor(
     private val _sideEffect = MutableSharedFlow<HomeContract.SideEffect>()
     val sideEffect = _sideEffect.asSharedFlow()
 
+    // 알림 권한 요청은 세션당 1회만.
+    // 안드로이드는 2번 거부당하면 다이얼로그를 영구 차단하므로,
+    // 남은 1번은 마이페이지 토글(사용자가 알림을 명확히 원하는 순간)에 남겨둔다.
+    private var notificationPermissionAsked = false
+
     init {
         observeHomeLayout()
         handleIntent(HomeContract.Intent.LoadGroups)
+        registerFcmToken()
     }
 
     fun handleIntent(intent: HomeContract.Intent) {
@@ -35,6 +43,16 @@ class HomeViewModel @Inject constructor(
             HomeContract.Intent.LoadGroups -> loadGroups()
             is HomeContract.Intent.NavigateToGroup -> navigateToGroup(intent.groupId)
             HomeContract.Intent.NavigateToCreateGroup -> navigateToCreateGroup()
+        }
+    }
+
+    // 홈은 로그인/회원가입/자동로그인 모든 경로가 거치는 지점 →
+    // FCM 토큰 등록을 여기 한 곳에서 처리한다.
+    // 사용자 동작이 아니므로 Intent로 만들지 않고 init에서 직접 호출.
+    private fun registerFcmToken() {
+        viewModelScope.launch {
+            // 실패해도 사용자에게 알리지 않음 (알림 수신 여부는 사용자가 한 행동이 아님)
+            registerFcmTokenUseCase()
         }
     }
 
@@ -59,6 +77,8 @@ class HomeViewModel @Inject constructor(
                         isLoading = false,
                         groups = groups
                     )}
+                    // 그룹이 생긴 뒤에야 리마인더가 의미를 가짐 → 이 시점에 권한 요청
+                    maybeRequestNotificationPermission(hasGroup = groups.isNotEmpty())
                 },
                 onFailure = { e ->
                     _uiState.update { it.copy(
@@ -68,6 +88,12 @@ class HomeViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    private suspend fun maybeRequestNotificationPermission(hasGroup: Boolean) {
+        if (!hasGroup || notificationPermissionAsked) return
+        notificationPermissionAsked = true
+        _sideEffect.emit(HomeContract.SideEffect.RequestNotificationPermission)
     }
 
     private fun navigateToGroup(groupId: String) {

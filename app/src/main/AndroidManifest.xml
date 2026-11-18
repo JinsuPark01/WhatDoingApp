@@ -4,6 +4,7 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 광고 ID 권한 제거 (광고 미사용) -->
     <uses-permission
         android:name="com.google.android.gms.permission.AD_ID"
@@ -50,6 +51,17 @@
                     android:pathPrefix="/group" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".data.fcm.HelpumtaMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="workout_reminder" />
     </application>
 
 </manifest>

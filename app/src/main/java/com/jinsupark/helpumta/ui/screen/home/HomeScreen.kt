@@ -2,6 +2,11 @@
 
 package com.jinsupark.helpumta.ui.screen.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,10 +28,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.domain.model.Group
@@ -35,6 +42,7 @@ import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.ui.screen.home.components.GroupCard
 import com.jinsupark.helpumta.ui.screen.home.components.GroupListCard
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
+import com.jinsupark.helpumta.ui.util.openAppNotificationSettings
 
 @Composable
 fun HomeScreen(
@@ -45,6 +53,18 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
+
+    // 거부 직후에만 뜨는 안내. 저장하지 않으므로 화면을 벗어나면 사라진다.
+    var showPermissionDeniedDialog by remember { mutableStateOf(false) }
+
+    // 안드로이드는 2번 거부하면 다이얼로그를 영구 차단한다.
+    // 그래서 거부 직후 이 자리에서 설정 경로를 알려주는 게 유일하게 타이밍이 좋다.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) showPermissionDeniedDialog = true
+    }
 
     // 화면이 보일 때마다 그룹 목록 새로고침
     DisposableEffect(lifecycleOwner) {
@@ -64,8 +84,48 @@ fun HomeScreen(
             when (effect) {
                 is HomeContract.SideEffect.NavigateToGroup -> onNavigateToGroup(effect.groupId)
                 HomeContract.SideEffect.NavigateToCreateGroup -> onNavigateToCreateGroup()
+                HomeContract.SideEffect.RequestNotificationPermission -> {
+                    // Android 13(API 33) 미만은 런타임 권한이 없음 → 아무것도 하지 않음
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val granted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (!granted) {
+                            notificationPermissionLauncher.launch(
+                                Manifest.permission.POST_NOTIFICATIONS
+                            )
+                        }
+                    }
+                }
             }
         }
+    }
+
+    if (showPermissionDeniedDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDeniedDialog = false },
+            title = { Text("알림을 받을 수 없어요") },
+            text = {
+                Text("오늘 기록을 남기지 않았을 때 저녁에 알려드려요.\n휴대폰 설정에서 언제든 켤 수 있어요.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPermissionDeniedDialog = false
+                        context.openAppNotificationSettings()
+                    }
+                ) {
+                    Text("설정으로 이동")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionDeniedDialog = false }) {
+                    Text("나중에")
+                }
+            }
+        )
     }
 
     HomeContent(

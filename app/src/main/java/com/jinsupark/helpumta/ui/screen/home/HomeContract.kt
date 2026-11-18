@@ -21,5 +21,6 @@ object HomeContract {
     sealed interface SideEffect {
         data class NavigateToGroup(val groupId: String) : SideEffect
         data object NavigateToCreateGroup : SideEffect
+        data object RequestNotificationPermission : SideEffect
     }
 }

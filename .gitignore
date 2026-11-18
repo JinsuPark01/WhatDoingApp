@@ -1,16 +1,47 @@
-*.iml
+# ───────── Gradle / 빌드 산출물 ─────────
 .gradle
-/local.properties
+build/
+/captures
+.externalNativeBuild
+.cxx
+.kotlin/
+app/release/
+
+# 안전망 — 릴리스 산출물이 실수로 커밋되는 것 방지
+*.aab
+*.apk
+
+# ───────── 로컬 설정 ─────────
+local.properties
+
+# ───────── 서명 키 (공개 레포에 절대 금지) ─────────
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# ───────── Firebase ─────────
+# 배포 캐시 및 디버그 로그 (functions/node_modules는 functions/.gitignore가 처리)
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# ───────── AI 코딩 도구 (Firebase CLI가 생성, 빌드·배포와 무관) ─────────
+.agents/
+.claude/
+skills-lock.json
+
+# ───────── IDE ─────────
+*.iml
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+
+# ───────── OS ─────────
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-app/release/
+Thumbs.db
+desktop.ini
