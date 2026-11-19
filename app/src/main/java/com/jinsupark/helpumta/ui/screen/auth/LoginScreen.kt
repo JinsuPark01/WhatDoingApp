@@ -127,7 +127,8 @@ private fun LoginContent(
                 value = uiState.email,
                 onValueChange = { onIntent(LoginContract.Intent.UpdateEmail(it)) },
                 keyboardType = KeyboardType.Email,
-                enabled = !uiState.isLoading
+                enabled = !uiState.isLoading,
+                isError = uiState.errorMessage != null
             )
 
             Spacer(Modifier.height(12.dp))
@@ -138,8 +139,17 @@ private fun LoginContent(
                 onValueChange = { onIntent(LoginContract.Intent.UpdatePassword(it)) },
                 isPassword = true,
                 enabled = !uiState.isLoading,
-                errorMessage = uiState.errorMessage
+                isError = uiState.errorMessage != null
             )
+
+            uiState.errorMessage?.let { message ->
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
 
             Spacer(Modifier.height(24.dp))
 

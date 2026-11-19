@@ -263,19 +263,35 @@ private fun EmptyGuide(
             .fillMaxWidth()
             .padding(horizontal = 32.dp)
     ) {
-        Text(
-            text = "헬품타에 오신 걸 환영해요",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        // IntrinsicSize.Min을 줘야 Row 높이가 텍스트 높이로 정해지고,
+        // 그래야 세로선의 fillMaxHeight가 그 높이를 따라간다.
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+            )
 
-        Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.width(14.dp))
 
-        Text(
-            text = "친구들과 그룹을 만들어\n운동 기록을 함께 공유해보세요",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            Column {
+                Text(
+                    text = "헬품타에 오신 걸 환영해요",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                Text(
+                    text = "친구들과 그룹을 만들어\n운동 기록을 함께 공유해보세요",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
         Spacer(Modifier.height(36.dp))
 
@@ -285,8 +301,37 @@ private fun EmptyGuide(
 
         Spacer(Modifier.height(36.dp))
 
+        // 실제 FAB를 축소해서 문장에 넣는다.
+        // "오른쪽 아래 + 버튼"이라고 글로 설명하는 것보다 모양을 보여주는 게 빠르다.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(MaterialTheme.shapes.extraSmall)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+
+            Text(
+                text = "버튼으로 그룹을 만들어보세요",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+
         Text(
-            text = "오른쪽 아래 + 버튼으로 시작하거나\n친구에게 받은 초대 링크로 참여할 수 있어요",
+            text = "친구에게 받은 초대 링크로도 참여할 수 있어요",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

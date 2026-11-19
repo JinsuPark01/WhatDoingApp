@@ -38,6 +38,7 @@ fun AuthTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     isPassword: Boolean = false,
     enabled: Boolean = true,
+    isError: Boolean = false,
     errorMessage: String? = null
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
@@ -48,7 +49,7 @@ fun AuthTextField(
         label = { Text(label) },
         singleLine = true,
         enabled = enabled,
-        isError = errorMessage != null,
+        isError = isError || errorMessage != null,
         supportingText = errorMessage?.let { message -> { Text(message) } },
         visualTransformation = if (isPassword && !passwordVisible) {
             PasswordVisualTransformation()
