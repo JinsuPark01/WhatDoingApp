@@ -5,6 +5,7 @@
     android:targetCellWidth="3"
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
+    android:minResizeHeight="50dp"
     android:widgetCategory="home_screen"
     android:description="@string/widget_group_status_description"
     android:updatePeriodMillis="1800000"

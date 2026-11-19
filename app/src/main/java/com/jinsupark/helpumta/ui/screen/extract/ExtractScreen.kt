@@ -8,7 +8,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
@@ -18,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.GraphicsLayer
@@ -25,8 +25,10 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -54,18 +56,19 @@ fun ExtractScreen(
     var settledImageCount by remember(uiState.slots) { mutableIntStateOf(0) }
     val isImagesReady = settledImageCount >= totalImageCount
 
+    val saveBitmap: () -> Unit = {
+        scope.launch {
+            val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
+            viewModel.handleIntent(ExtractContract.Intent.Save(bitmap))
+        }
+    }
+
     // 권한 런처 (Android 9 이하용)
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) {
-            scope.launch {
-                val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
-                viewModel.handleIntent(ExtractContract.Intent.Save(bitmap))
-            }
-        } else {
-            Toast.makeText(context, "저장하려면 권한이 필요해요", Toast.LENGTH_SHORT).show()
-        }
+        if (granted) saveBitmap()
+        else Toast.makeText(context, "저장하려면 권한이 필요해요", Toast.LENGTH_SHORT).show()
     }
 
     LaunchedEffect(groupId, dateMillis) {
@@ -84,9 +87,13 @@ fun ExtractScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("사진 추출") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = { Text("사진 추출", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
@@ -95,37 +102,36 @@ fun ExtractScreen(
             )
         },
         floatingActionButton = {
-            if (uiState.slots.isNotEmpty() && !uiState.isSaving && isImagesReady) {
+            if (uiState.slots.isNotEmpty()) {
+                val busy = uiState.isSaving || !isImagesReady
+
                 FloatingActionButton(
                     onClick = {
+                        if (busy) return@FloatingActionButton
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            // 10+ : 권한 없이 바로 저장
-                            scope.launch {
-                                val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
-                                viewModel.handleIntent(ExtractContract.Intent.Save(bitmap))
-                            }
+                            saveBitmap()
                         } else {
-                            // 9 이하 : 권한 요청 후 저장
-                            permissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            permissionLauncher.launch(
+                                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                            )
                         }
                     },
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(Icons.Default.Download, contentDescription = "이미지 저장")
-                }
-            } else if (uiState.isSaving || (uiState.slots.isNotEmpty() && !isImagesReady)) {
-                // 저장 중 / 이미지 로딩 중
-                FloatingActionButton(
-                    onClick = {},
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
                     )
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(Icons.Default.Download, contentDescription = "이미지 저장")
+                    }
                 }
             }
         }
@@ -138,14 +144,19 @@ fun ExtractScreen(
         ) {
             when {
                 uiState.isLoading -> CircularProgressIndicator()
+
                 uiState.errorMessage != null -> Text(
                     text = uiState.errorMessage!!,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.error
                 )
+
                 uiState.slots.isEmpty() -> Text(
                     text = "이 날에는 추출할 기록이 없어요",
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
                 else -> ExtractCanvas(
                     slots = uiState.slots,
                     graphicsLayer = graphicsLayer,
@@ -156,9 +167,17 @@ fun ExtractScreen(
     }
 }
 
-// 추출 결과물 본체 (나중에 이걸 캡처함)
-// 칸 세로 최대 비율 (칸높이 = 캔버스폭 × 이 값). 보면서 조정.
+// ─────────────────────────────────────────────
+// 아래는 앱 화면이 아니라 "저장되어 밖으로 나가는 이미지"다.
+// 앱 테마(라이트/다크)를 따라가지 않고 검정으로 고정하며,
+// 크기도 전부 고정값을 쓴다.
+// ─────────────────────────────────────────────
+
 private const val SLOT_MAX_HEIGHT_RATIO = 0.55f
+
+private val CanvasBackground = Color.Black
+private val EmptySlotBackground = Color(0xFF1A1A1A)
+private val NoImageBackground = Color(0xFF3B4A5A)
 
 @Composable
 private fun ExtractCanvas(
@@ -166,44 +185,57 @@ private fun ExtractCanvas(
     graphicsLayer: GraphicsLayer,
     onImageSettled: () -> Unit
 ) {
-    BoxWithConstraints(
+    val density = LocalDensity.current
+
+    // 미리보기만 모서리를 둥글게 자른다. 캡처 대상은 바깥 Box 안쪽이라
+    // 저장되는 이미지에는 둥근 모서리(=투명/검은 귀퉁이)가 남지 않는다.
+    Box(
         modifier = Modifier
             .fillMaxWidth(0.85f)
             .aspectRatio(9f / 16f)
-            .clip(RoundedCornerShape(16.dp))
-            .drawWithContent {
-                // 레이어에 기록 후 화면에도 그림
-                graphicsLayer.record { this@drawWithContent.drawContent() }
-                drawLayer(graphicsLayer)
-            }
-            .background(Color.Black)
+            .clip(MaterialTheme.shapes.large)
     ) {
-        val canvasHeight = maxHeight
-        val canvasWidth = maxWidth
-        val count = slots.size.coerceAtLeast(1)
+        // 글꼴 배율을 1로 고정한다.
+        // sp를 그대로 두면 시스템 글꼴을 키운 사람이 뽑은 이미지만 글자가 커져서,
+        // 같은 날 같은 기록인데 누가 저장했느냐에 따라 결과물이 달라진다.
+        CompositionLocalProvider(
+            LocalDensity provides Density(density = density.density, fontScale = 1f)
+        ) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        graphicsLayer.record { this@drawWithContent.drawContent() }
+                        drawLayer(graphicsLayer)
+                    }
+                    .background(CanvasBackground)
+            ) {
+                val canvasHeight = maxHeight
+                val canvasWidth = maxWidth
+                val count = slots.size.coerceAtLeast(1)
 
-        // 칸 높이 = min(꽉채운높이, 상한). 상한 = 폭 × 비율
-        val evenHeight = canvasHeight / count
-        val maxHeight = canvasWidth * SLOT_MAX_HEIGHT_RATIO
-        val slotHeight = minOf(evenHeight, maxHeight)
+                val evenHeight = canvasHeight / count
+                val slotHeight = minOf(evenHeight, canvasWidth * SLOT_MAX_HEIGHT_RATIO)
 
-        // 위아래 여백 (남는 공간 절반씩)
-        val totalSlotsHeight = slotHeight * count
-        val verticalPadding = ((canvasHeight - totalSlotsHeight) / 2).coerceAtLeast(0.dp)
+                val totalSlotsHeight = slotHeight * count
+                val verticalPadding =
+                    ((canvasHeight - totalSlotsHeight) / 2).coerceAtLeast(0.dp)
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (verticalPadding > 0.dp) {
-                Spacer(Modifier.height(verticalPadding))
-            }
-            slots.forEach { slot ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(slotHeight)
-                ) {
-                    when (slot) {
-                        is ExtractSlot.Recorded -> RecordedSlot(slot, onImageSettled)
-                        is ExtractSlot.Empty -> EmptySlot(slot)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    if (verticalPadding > 0.dp) {
+                        Spacer(Modifier.height(verticalPadding))
+                    }
+                    slots.forEach { slot ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(slotHeight)
+                        ) {
+                            when (slot) {
+                                is ExtractSlot.Recorded -> RecordedSlot(slot, onImageSettled)
+                                is ExtractSlot.Empty -> EmptySlot(slot)
+                            }
+                        }
                     }
                 }
             }
@@ -217,7 +249,6 @@ private fun RecordedSlot(
     onImageSettled: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        // 배경: 인증샷
         if (slot.imageUrl.isNotBlank()) {
             AsyncImage(
                 model = slot.imageUrl,
@@ -232,67 +263,73 @@ private fun RecordedSlot(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF3B4A5A))
+                    .background(NoImageBackground)
             )
         }
-        // 가독성용 어둡게
+
+        // 균일한 오버레이는 밝은 사진에서 글자를 못 살린다.
+        // 글자가 있는 양끝만 어둡게 깔고 가운데는 사진을 살린다.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.28f))
+                .background(
+                    Brush.horizontalGradient(
+                        0f to Color.Black.copy(alpha = 0.6f),
+                        0.3f to Color.Black.copy(alpha = 0.18f),
+                        0.7f to Color.Black.copy(alpha = 0.18f),
+                        1f to Color.Black.copy(alpha = 0.6f)
+                    )
+                )
         )
-        // 텍스트 (좌: 이름/소감, 우: 시간/종목)
+
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp),
+                .padding(horizontal = 26.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 좌측: 남은 공간만 차지 → 우측에 양보, 넘치면 말줄임
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = slot.nickname,
                     color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis        // 닉네임 처리
+                    overflow = TextOverflow.Ellipsis
                 )
                 if (slot.comment.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(5.dp))
                     Text(
                         text = slot.comment,
                         color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis    // 소감 처리 (종목에 양보)
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(16.dp))
 
-            // 우측: 콘텐츠 크기대로 먼저 자리 차지 (시간/종목 값 보존)
+            // "운동 시간"/"운동 종목" 라벨을 뺐다.
+            // 180분과 등산은 라벨 없이도 읽히고, 9sp 라벨은 저장된 이미지에서 안 보인다.
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "${slot.workoutDuration}분",
                     color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1
                 )
-                Text("운동 시간", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp)
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(5.dp))
                 Text(
                     text = slot.workoutType,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 140.dp)   // 종목 상한 (극단 길이만 제한)
+                    modifier = Modifier.widthIn(max = 140.dp)
                 )
-                Text("운동 종목", color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp)
             }
         }
     }
@@ -303,57 +340,32 @@ private fun EmptySlot(slot: ExtractSlot.Empty) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A1A1A))   // 미기록 어두운 배경
+            .background(EmptySlotBackground)
     ) {
-        // 기록자랑 동일한 좌우 레이아웃
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 26.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // 좌측: 이름 / (소감 자리) 💤 zzz
-            Column {
-                Text(
-                    text = slot.nickname,
-                    color = Color.White.copy(alpha = 0.5f),   // 흐리게
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "💤 ",
-                    color = Color.White.copy(alpha = 0.45f),
-                    fontSize = 12.sp
-                )
-            }
-            // 우측: -- / 라벨
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "--",
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "운동 시간",
-                    color = Color.White.copy(alpha = 0.35f),
-                    fontSize = 9.sp
-                )
-                Spacer(Modifier.height(7.dp))
-                Text(
-                    text = "--",
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "운동 종목",
-                    color = Color.White.copy(alpha = 0.35f),
-                    fontSize = 9.sp
-                )
-            }
+            Text(
+                text = slot.nickname,
+                color = Color.White.copy(alpha = 0.45f),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+
+            Spacer(Modifier.width(16.dp))
+
+            // 이모지는 color 지정이 먹지 않아 💤가 파랗게 박혔다. 글자로 바꿨다.
+            Text(
+                text = "기록 없음",
+                color = Color.White.copy(alpha = 0.35f),
+                fontSize = 13.sp
+            )
         }
     }
 }

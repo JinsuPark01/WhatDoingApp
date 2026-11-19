@@ -40,7 +40,7 @@ class WeeklyWidget : GlanceAppWidget() {
 
         provideContent {
             val snapshot = WidgetSnapshot.fromJson(currentState<Preferences>()[SNAPSHOT_KEY])
-            GlanceTheme { Body(snapshot.toWeekState()) }
+            HelpumtaWidgetTheme { Body(snapshot.toWeekState()) }
         }
     }
 }

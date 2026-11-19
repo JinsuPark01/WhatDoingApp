@@ -45,7 +45,7 @@ class GroupStatusWidget : GlanceAppWidget() {
 
         provideContent {
             val snapshot = WidgetSnapshot.fromJson(currentState<Preferences>()[SNAPSHOT_KEY])
-            GlanceTheme { Body(snapshot.toTodayState()) }
+            HelpumtaWidgetTheme { Body(snapshot.toTodayState()) }
         }
     }
 }

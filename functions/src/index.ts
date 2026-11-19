@@ -101,31 +101,46 @@ export const workoutReminder = onSchedule(
     });
 
     // ── 5. 메시지 조립
+    // 발송 단위는 그룹이 아니라 사용자다.
+    // 그룹마다 보내면 3개 그룹에 참여한 사람은 매일 저녁 알림 3개를 받는다.
+    const byUid = new Map<string, Target[]>();
+    for (const t of targets) {
+      const list = byUid.get(t.uid);
+      if (list) list.push(t);
+      else byUid.set(t.uid, [t]);
+    }
+
     // data-only 페이로드를 쓴다. 앱이 백그라운드여도 onMessageReceived가 호출되어
-    // 그룹 딥링크가 붙은 알림을 앱이 직접 만들 수 있다.
+    // 앱이 직접 알림을 만들 수 있다.
     // 대신 Doze 모드를 깨우려면 android.priority = high 가 필요하다.
     const messages: Message[] = [];
     const messageUids: string[] = []; // 실패 응답을 uid로 되짚기 위한 병렬 배열
 
-    for (const t of targets) {
-      const token = tokenByUid.get(t.uid);
+    for (const [uid, list] of byUid) {
+      const token = tokenByUid.get(uid);
       if (!token) continue; // 토큰 없음(로그아웃 상태 등) → 건너뜀
+
+      const single = list.length === 1;
 
       messages.push({
         token,
         // FCM data 페이로드의 값은 전부 문자열이어야 한다
         data: {
           title: "오늘 운동 기록이 비어 있어요",
-          body: `${t.groupName}에 오늘 기록을 남겨보세요`,
-          groupId: t.groupId,
+          body: single
+            ? `${list[0].groupName}에 오늘 기록을 남겨보세요`
+            : `${list.length}개 그룹에 오늘 기록이 비어 있어요`,
+          // 미작성 그룹이 하나면 거기로 바로 보낸다.
+          // 여러 개면 어디로 갈지 고를 수 없으므로 키를 빼서 홈으로 열리게 한다.
+          ...(single ? { groupId: list[0].groupId } : {}),
         },
         android: { priority: "high" },
       });
-      messageUids.push(t.uid);
+      messageUids.push(uid);
     }
 
     if (messages.length === 0) {
-      logger.info(`미작성자 ${targets.length}명, 토큰 보유자 0명`);
+      logger.info(`미작성자 ${byUid.size}명, 토큰 보유자 0명`);
       return;
     }
 

@@ -20,7 +20,7 @@ import androidx.core.view.WindowCompat
  * secondary·tertiary까지 무채색으로 고정한 건 의도적이다.
  * 비워두면 Material3가 primary에서 색을 파생시켜 베이지가 다시 번진다.
  */
-private val LightColorScheme = lightColorScheme(
+internal val LightColorScheme = lightColorScheme(
     primary = Orange,
     onPrimary = White,
     primaryContainer = OrangeTintLight,
@@ -63,7 +63,7 @@ private val LightColorScheme = lightColorScheme(
     scrim = Scrim
 )
 
-private val DarkColorScheme = darkColorScheme(
+internal val DarkColorScheme = darkColorScheme(
     primary = Orange,            // 라이트와 동일
     onPrimary = White,
     primaryContainer = OrangeTintDark,

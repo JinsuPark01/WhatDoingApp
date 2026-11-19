@@ -86,6 +86,7 @@ dependencies {
 
     // ───── 위젯 (Glance) ─────
     implementation(libs.androidx.glance.appwidget)
+    implementation(libs.glance.material3)
 
     // ───── DI (Hilt) ─────
     implementation(libs.hilt.android)
