@@ -3,10 +3,12 @@
 package com.jinsupark.helpumta.ui.screen.group
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -20,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -29,13 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.domain.model.Group
-import com.jinsupark.helpumta.domain.model.GroupPolicy
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
+import com.jinsupark.helpumta.ui.screen.group.components.DayProgress
+import com.jinsupark.helpumta.ui.screen.group.components.RecordCalendarDialog
 import com.jinsupark.helpumta.ui.screen.group.components.RecordCard
 import com.jinsupark.helpumta.ui.screen.group.components.StatsContent
-import com.jinsupark.helpumta.ui.screen.group.components.RecordCalendarDialog
-import com.jinsupark.helpumta.ui.theme.DisabledGray
-import com.jinsupark.helpumta.ui.theme.OnDisabledGray
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -65,7 +66,7 @@ fun GroupDetailScreen(
     LaunchedEffect(recordCreated) {
         if (recordCreated) {
             viewModel.handleIntent(GroupDetailContract.Intent.RefreshToToday)
-            onRecordCreatedHandled()   // 신호 비움 (여기서)
+            onRecordCreatedHandled()
         }
     }
 
@@ -88,7 +89,7 @@ fun GroupDetailScreen(
         onCopyInviteCode = {
             val inviteLink = "https://whatdoing-c4457.web.app/group/$groupId"
             clipboardManager.setText(AnnotatedString(inviteLink))
-            Toast.makeText(context, "초대 링크를 복사했어요!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "초대 링크를 복사했어요", Toast.LENGTH_SHORT).show()
         },
         onExtract = { onNavigateToExtract(groupId, uiState.selectedDate) },
         onEditRecord = { recordId -> onNavigateToEditRecord(groupId, recordId) }
@@ -110,18 +111,23 @@ private fun GroupDetailContent(
     var deleteTarget by remember { mutableStateOf<WorkoutRecord?>(null) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
                 title = {
                     Column {
                         Text(
                             text = uiState.group?.name ?: "",
+                            style = MaterialTheme.typography.titleLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         uiState.group?.let { group ->
                             Text(
-                                text = "멤버 ${group.memberCount} / ${GroupPolicy.MAX_MEMBERS}명",
+                                text = "멤버 ${group.memberCount}명",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -156,7 +162,7 @@ private fun GroupDetailContent(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("초대 코드 복사") },
+                                text = { Text("초대 링크 복사") },
                                 onClick = {
                                     menuExpanded = false
                                     onCopyInviteCode()
@@ -185,32 +191,34 @@ private fun GroupDetailContent(
             )
         },
         floatingActionButton = {
-            // 기록 탭에서만 노출 (통계 탭은 날짜 개념이 없음)
             if (uiState.group != null &&
                 uiState.selectedTab == GroupDetailContract.Tab.RECORDS
             ) {
+                val done = uiState.hasWroteToday
                 FloatingActionButton(
                     onClick = {
-                        if (uiState.hasWroteToday) {
-                            onIntent(GroupDetailContract.Intent.AlreadyWroteToday)
-                        } else {
-                            onIntent(GroupDetailContract.Intent.NavigateToRecord)
-                        }
+                        if (done) onIntent(GroupDetailContract.Intent.AlreadyWroteToday)
+                        else onIntent(GroupDetailContract.Intent.NavigateToRecord)
                     },
-                    containerColor = if (uiState.hasWroteToday) {
-                        DisabledGray
+                    // 테마 색을 따라가게 해서 다크모드에서도 자연스럽게 보이도록
+                    containerColor = if (done) {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
                     } else {
                         MaterialTheme.colorScheme.primary
                     },
-                    contentColor = if (uiState.hasWroteToday) {
-                        OnDisabledGray
+                    contentColor = if (done) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
                         MaterialTheme.colorScheme.onPrimary
-                    }
+                    },
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
+                    )
                 ) {
                     Icon(
                         Icons.Default.Edit,
-                        contentDescription = if (uiState.hasWroteToday) "오늘은 이미 작성했어요" else "오늘 기록 작성"
+                        contentDescription = if (done) "오늘은 이미 작성했어요" else "오늘 기록 작성"
                     )
                 }
             }
@@ -235,94 +243,60 @@ private fun GroupDetailContent(
                 uiState.group != null -> {
                     Column(modifier = Modifier.fillMaxSize()) {
 
-                        // 탭
-                        TabRow(
-                            selectedTabIndex = uiState.selectedTab.ordinal
-                        ) {
-                            Tab(
-                                selected = uiState.selectedTab == GroupDetailContract.Tab.RECORDS,
-                                onClick = {
-                                    onIntent(
-                                        GroupDetailContract.Intent.SelectTab(
-                                            GroupDetailContract.Tab.RECORDS
-                                        )
-                                    )
-                                },
-                                text = { Text("기록") }
-                            )
-                            Tab(
-                                selected = uiState.selectedTab == GroupDetailContract.Tab.STATS,
-                                onClick = {
-                                    onIntent(
-                                        GroupDetailContract.Intent.SelectTab(
-                                            GroupDetailContract.Tab.STATS
-                                        )
-                                    )
-                                },
-                                text = { Text("통계") }
-                            )
-                        }
+                        GroupTabs(
+                            selected = uiState.selectedTab,
+                            onSelect = { tab ->
+                                onIntent(GroupDetailContract.Intent.SelectTab(tab))
+                            }
+                        )
 
                         when (uiState.selectedTab) {
                             GroupDetailContract.Tab.RECORDS -> {
-                                // 날짜 네비게이션 바
-                                DateNavigationBar(
+                                DateHeader(
                                     selectedDate = uiState.selectedDate,
+                                    wroteCount = uiState.records.map { it.userId }.distinct().size,
+                                    memberCount = uiState.group.memberCount,
                                     onPrevDay = { onIntent(GroupDetailContract.Intent.MoveDay(-1)) },
                                     onNextDay = { onIntent(GroupDetailContract.Intent.MoveDay(1)) },
                                     onDateClick = {
-                                        onIntent(GroupDetailContract.Intent.OpenCalendar)  // 해당 달 표시 로드
+                                        onIntent(GroupDetailContract.Intent.OpenCalendar)
                                         showDatePicker = true
                                     }
                                 )
-                                HorizontalDivider()
 
                                 when {
                                     uiState.recordsErrorMessage != null -> {
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = MaterialTheme.colorScheme.errorContainer
-                                            )
-                                        ) {
-                                            Text(
-                                                text = uiState.recordsErrorMessage,
-                                                modifier = Modifier.padding(16.dp),
-                                                color = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
+                                        EmptyMessage(uiState.recordsErrorMessage)
                                     }
                                     uiState.records.isEmpty() -> {
-                                        val isToday = isSameDay(uiState.selectedDate, System.currentTimeMillis())
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = if (isToday) {
-                                                    "아직 오늘 기록이 없어요\n첫 기록을 남겨보세요!"
-                                                } else {
-                                                    "이 날에는 운동 기록이 없어요"
-                                                },
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        val isToday = isSameDay(
+                                            uiState.selectedDate,
+                                            System.currentTimeMillis()
+                                        )
+                                        EmptyMessage(
+                                            if (isToday) "오늘 첫 기록을 남겨보세요"
+                                            else "이 날은 기록이 없어요"
+                                        )
                                     }
                                     else -> {
                                         LazyColumn(
-                                            contentPadding = PaddingValues(16.dp),
-                                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                            contentPadding = PaddingValues(
+                                                start = 20.dp,
+                                                end = 20.dp,
+                                                top = 12.dp,
+                                                bottom = 100.dp   // FAB 가림 방지
+                                            ),
+                                            verticalArrangement = Arrangement.spacedBy(32.dp)
                                         ) {
                                             items(
                                                 items = uiState.records,
                                                 key = { it.id }
                                             ) { record ->
                                                 val isMine = record.userId == uiState.currentUserId
-                                                val canEdit = isMine &&
-                                                        isSameDay(record.createdAt, System.currentTimeMillis())
+                                                val canEdit = isMine && isSameDay(
+                                                    record.createdAt,
+                                                    System.currentTimeMillis()
+                                                )
                                                 RecordCard(
                                                     record = record,
                                                     canEdit = canEdit,
@@ -347,15 +321,7 @@ private fun GroupDetailContent(
                                         }
                                     }
                                     uiState.statsErrorMessage != null -> {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = uiState.statsErrorMessage,
-                                                color = MaterialTheme.colorScheme.error
-                                            )
-                                        }
+                                        EmptyMessage(uiState.statsErrorMessage)
                                     }
                                     uiState.stats != null -> {
                                         StatsContent(
@@ -367,17 +333,18 @@ private fun GroupDetailContent(
                             }
                         }
                     }
-                }            }
+                }
+            }
         }
     }
 
-    // 그룹 나가기 확인 다이얼로그
+    // 그룹 나가기 확인
     if (showLeaveDialog) {
         AlertDialog(
             onDismissRequest = { showLeaveDialog = false },
             title = { Text("그룹 나가기") },
             text = {
-                Text("그룹을 나가면 이 그룹에 작성한 내 기록과 사진이 모두 삭제되며 복구할 수 없어요. 정말 나가시겠어요?")
+                Text("그룹을 나가면 이 그룹에 작성한 내 기록과 사진이 모두 삭제돼요. 되돌릴 수 없어요.")
             },
             confirmButton = {
                 TextButton(
@@ -394,7 +361,7 @@ private fun GroupDetailContent(
         )
     }
 
-    // 기록 삭제 확인 다이얼로그
+    // 기록 삭제 확인
     deleteTarget?.let { target ->
         val isToday = isSameDay(target.createdAt, System.currentTimeMillis())
         AlertDialog(
@@ -402,11 +369,8 @@ private fun GroupDetailContent(
             title = { Text("기록 삭제") },
             text = {
                 Text(
-                    if (isToday) {
-                        "삭제하면 사진도 함께 삭제되며 복구할 수 없어요. 오늘 기록은 다시 작성할 수 있어요."
-                    } else {
-                        "삭제하면 사진도 함께 삭제되며 복구할 수 없어요. 지난 날짜는 다시 작성할 수 없어요."
-                    }
+                    if (isToday) "사진도 함께 삭제돼요. 오늘 기록은 다시 작성할 수 있어요."
+                    else "사진도 함께 삭제돼요. 지난 날짜는 다시 작성할 수 없어요."
                 )
             },
             confirmButton = {
@@ -421,7 +385,7 @@ private fun GroupDetailContent(
         )
     }
 
-    // 날짜 선택 달력 (내 기록이 있는 날에 점 표시)
+    // 날짜 선택 달력
     if (showDatePicker) {
         RecordCalendarDialog(
             selectedDate = uiState.selectedDate,
@@ -432,60 +396,140 @@ private fun GroupDetailContent(
             onNextMonth = { onIntent(GroupDetailContract.Intent.MoveMonth(1)) },
             onSelectDate = { millis ->
                 onIntent(GroupDetailContract.Intent.SelectDate(millis))
-                showDatePicker = false   // 선택 즉시 닫힘 (확인 버튼 불필요)
+                showDatePicker = false
             },
             onDismiss = { showDatePicker = false }
         )
-    }}
+    }
+}
 
+/**
+ * 탭 2개뿐이라 TabRow를 쓰지 않는다.
+ * 기본 TabRow는 선택/비선택 모두 primary로 칠해서 화면에 주황이 과해지고,
+ * 인디케이터 오프셋 API가 Material3 버전마다 달라 손이 더 간다.
+ * 선택된 탭만 onSurface로 또렷하게, 밑줄은 짧은 알약 하나.
+ */
 @Composable
-private fun DateNavigationBar(
-    selectedDate: Long,
-    onPrevDay: () -> Unit,
-    onNextDay: () -> Unit,
-    onDateClick: () -> Unit
+private fun GroupTabs(
+    selected: GroupDetailContract.Tab,
+    onSelect: (GroupDetailContract.Tab) -> Unit
 ) {
-    // 오늘이면 다음날(>) 비활성화
-    val isToday = isSameDay(selectedDate, System.currentTimeMillis())
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+            .padding(horizontal = 20.dp)
     ) {
-        IconButton(onClick = onPrevDay) {
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = "이전 날"
-            )
-        }
+        GroupDetailContract.Tab.entries.forEach { tab ->
+            val isSelected = tab == selected
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onSelect(tab) }
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    // when으로 쓰면 탭이 늘어났을 때 컴파일이 깨져서 알려준다
+                    text = when (tab) {
+                        GroupDetailContract.Tab.RECORDS -> "기록"
+                        GroupDetailContract.Tab.STATS -> "통계"
+                    },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
 
-        Text(
-            text = formatDate(selectedDate),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .clickable { onDateClick() }
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-        )
+                Spacer(Modifier.height(8.dp))
 
-        IconButton(
-            onClick = onNextDay,
-            enabled = !isToday
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "다음 날"
-            )
+                if (isSelected) {
+                    Box(
+                        modifier = Modifier
+                            .width(24.dp)
+                            .height(2.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurface)
+                    )
+                } else {
+                    Spacer(Modifier.height(2.dp))
+                }
+            }
         }
     }
 }
 
+@Composable
+private fun DateHeader(
+    selectedDate: Long,
+    wroteCount: Int,
+    memberCount: Int,
+    onPrevDay: () -> Unit,
+    onNextDay: () -> Unit,
+    onDateClick: () -> Unit
+) {
+    val isToday = isSameDay(selectedDate, System.currentTimeMillis())
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp, bottom = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onPrevDay) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "이전 날",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = formatDate(selectedDate),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier
+                    .clickable { onDateClick() }
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            )
+
+            IconButton(onClick = onNextDay, enabled = !isToday) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "다음 날",
+                    tint = if (isToday) MaterialTheme.colorScheme.outlineVariant
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        DayProgress(wroteCount = wroteCount, memberCount = memberCount)
+    }
+}
+
+@Composable
+private fun EmptyMessage(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 80.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+// "6월 27일 금" — 숫자 나열보다 읽기 쉽다
 private fun formatDate(millis: Long): String {
     if (millis <= 0L) return ""
-    val sdf = SimpleDateFormat("yyyy.MM.dd", Locale.KOREA)
-    return sdf.format(Date(millis))
+    return SimpleDateFormat("M월 d일 E", Locale.KOREA).format(Date(millis))
 }
 
 private fun isSameDay(a: Long, b: Long): Boolean {
@@ -506,32 +550,18 @@ private fun todayDayIndex(): Int {
 @Composable
 private fun GroupDetailContentPreview() {
     val dummyState = GroupDetailContract.UiState(
-        group = Group(
-            id = "1",
-            name = "아침 운동 크루",
-            memberCount = 4
-        ),
+        group = Group(id = "1", name = "헬스팟", memberCount = 4),
         records = listOf(
             WorkoutRecord(
-                id = "1",
-                groupId = "1",
-                userId = "user1",
-                userName = "진수",
-                workoutType = "헬스",
-                workoutDuration = 60,
-                imageUrl = "",
-                comment = "오늘 하체 했어요 💪 데드 100kg 성공!",
+                id = "1", groupId = "1", userId = "user1", userName = "이정수",
+                workoutType = "사이클", workoutDuration = 90,
+                imageUrl = "", comment = "퇴근 후",
                 createdAt = System.currentTimeMillis()
             ),
             WorkoutRecord(
-                id = "2",
-                groupId = "1",
-                userId = "user2",
-                userName = "민수",
-                workoutType = "러닝",
-                workoutDuration = 30,
-                imageUrl = "",
-                comment = "한강 따라 3km 뛰었어요 🏃",
+                id = "2", groupId = "1", userId = "user2", userName = "최이랑",
+                workoutType = "러닝", workoutDuration = 45,
+                imageUrl = "", comment = "한강런",
                 createdAt = System.currentTimeMillis() - 3600000
             )
         ),

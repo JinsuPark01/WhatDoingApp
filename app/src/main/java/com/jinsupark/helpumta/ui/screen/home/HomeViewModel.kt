@@ -2,7 +2,7 @@ package com.jinsupark.helpumta.ui.screen.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jinsupark.helpumta.domain.usecase.GetGroupsUseCase
+import com.jinsupark.helpumta.domain.usecase.GetGroupsWithTodayUseCase
 import com.jinsupark.helpumta.domain.usecase.GetHomeLayoutUseCase
 import com.jinsupark.helpumta.domain.usecase.RegisterFcmTokenUseCase
 import com.jinsupark.helpumta.widget.WidgetUpdater
@@ -17,7 +17,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val getGroupsUseCase: GetGroupsUseCase,
+    private val getGroupsWithTodayUseCase: GetGroupsWithTodayUseCase,
     private val getHomeLayoutUseCase: GetHomeLayoutUseCase,
     private val registerFcmTokenUseCase: RegisterFcmTokenUseCase,
     private val widgetUpdater: WidgetUpdater
@@ -80,7 +80,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            val result = getGroupsUseCase()
+            val result = getGroupsWithTodayUseCase()
 
             result.fold(
                 onSuccess = { groups ->

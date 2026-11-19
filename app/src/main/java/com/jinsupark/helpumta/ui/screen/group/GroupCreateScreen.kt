@@ -10,7 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.jinsupark.helpumta.ui.component.FormField
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 
 @Composable
@@ -83,9 +83,18 @@ private fun GroupCreateContent(
     onPickImage: () -> Unit
 ) {
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("그룹 만들기") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = {
+                    Text(
+                        text = "그룹 만들기",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -101,85 +110,90 @@ private fun GroupCreateContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 24.dp)
-                .padding(top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // 그룹 대표 이미지
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { onPickImage() },
-                contentAlignment = Alignment.Center
+            // ── 그룹 대표 이미지
+            // 16:9가 아니라 정사각이다. 홈 카드도, 참여 화면도 이 이미지를
+            // 정사각으로 잘라 쓰기 때문에, 고를 때 보는 구도가 그대로여야 한다.
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (uiState.imageUri != null) {
-                    AsyncImage(
-                        model = uiState.imageUri,
-                        contentDescription = "그룹 이미지",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(MaterialTheme.shapes.large)
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .clickable { onPickImage() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (uiState.imageUri != null) {
+                        AsyncImage(
+                            model = uiState.imageUri,
+                            contentDescription = "그룹 이미지",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
                         Icon(
                             Icons.Default.AddPhotoAlternate,
-                            contentDescription = "이미지 추가",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "그룹 대표 이미지 추가",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
+
+                Spacer(Modifier.height(10.dp))
+
+                Text(
+                    text = if (uiState.imageUri != null) "이미지 변경" else "그룹 대표 이미지 (선택)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            // 그룹 이름
-            OutlinedTextField(
+            FormField(
+                label = "그룹 이름",
                 value = uiState.name,
                 onValueChange = { onIntent(GroupCreateContract.Intent.UpdateName(it)) },
-                label = { Text("그룹 이름") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                placeholder = "헬스팟, 아침 러닝…"
             )
 
-            // 그룹 설명
-            OutlinedTextField(
+            FormField(
+                label = "그룹 설명 (선택)",
                 value = uiState.description,
                 onValueChange = { onIntent(GroupCreateContract.Intent.UpdateDescription(it)) },
-                label = { Text("그룹 설명 (선택)") },
-                minLines = 2,
-                maxLines = 4,
-                modifier = Modifier.fillMaxWidth()
+                placeholder = "어떤 모임인지 적어주세요",
+                singleLine = false,
+                minLines = 3,
+                maxLines = 5
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
 
-            // 생성 버튼
-            if (uiState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            } else {
-                Button(
-                    onClick = { onIntent(GroupCreateContract.Intent.SubmitCreate) },
-                    enabled = uiState.isCreateEnabled,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                ) {
-                    Text("그룹 만들기")
+            Button(
+                onClick = { onIntent(GroupCreateContract.Intent.SubmitCreate) },
+                enabled = uiState.isCreateEnabled && !uiState.isLoading,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "그룹 만들기",
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

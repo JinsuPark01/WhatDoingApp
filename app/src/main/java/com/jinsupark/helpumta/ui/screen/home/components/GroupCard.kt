@@ -2,28 +2,27 @@ package com.jinsupark.helpumta.ui.screen.home.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Groups
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.jinsupark.helpumta.domain.model.Group
+import com.jinsupark.helpumta.domain.model.GroupToday
 
 @Composable
 fun GroupCard(
-    group: Group,
+    item: GroupToday,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val group = item.group
     val hasImage = group.imageUrl.isNotBlank()
 
     Card(
@@ -31,66 +30,74 @@ fun GroupCard(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f),
-        shape = RoundedCornerShape(16.dp)
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
 
             if (hasImage) {
-                // 이미지 배경
                 AsyncImage(
                     model = group.imageUrl,
-                    contentDescription = group.name,
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-                // 하단 그라데이션 (흰 글자 가독성)
+                // 비율로 준다. 고정 픽셀(startY)은 카드 크기가 달라지면 어긋난다.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)),
-                                startY = 300f
+                                0.45f to Color.Transparent,
+                                1f to Color.Black.copy(alpha = 0.72f)
                             )
                         )
                 )
             } else {
-                // fallback: 흐린 아이콘 (텍스트랑 안 겹치게)
-                Box(
+                // 중앙에 두면 하단 그룹명과 겹친다. 위쪽에 고정한다.
+                Text(
+                    text = group.name.take(1),
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f),
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Groups,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                    )
-                }
+                        .align(Alignment.TopCenter)
+                        .padding(top = 24.dp)
+                )
             }
 
-            // 텍스트 (하단)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(14.dp),
                 verticalArrangement = Arrangement.Bottom
             ) {
                 Text(
                     text = group.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (hasImage) Color.White else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,                          // 추가
-                    overflow = TextOverflow.Ellipsis       // 추가
+                    color = if (hasImage) Color.White
+                    else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = "멤버 ${group.memberCount}명",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (hasImage) Color.White.copy(alpha = 0.85f)
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+
+                Spacer(Modifier.height(6.dp))
+
+                TodayDots(
+                    wroteCount = item.wroteCount,
+                    memberCount = group.memberCount,
+                    onImage = hasImage
+                )
+            }
+
+            // 오늘 아직 안 쓴 그룹. 앱을 열자마자 할 일이 보이게 한다.
+            if (!item.didIWrite) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
                 )
             }
         }

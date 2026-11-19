@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
@@ -27,10 +26,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -38,6 +34,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jinsupark.helpumta.domain.model.Group
 import com.jinsupark.helpumta.domain.model.GroupPolicy
+import com.jinsupark.helpumta.domain.model.GroupToday
 import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.ui.screen.home.components.GroupCard
 import com.jinsupark.helpumta.ui.screen.home.components.GroupListCard
@@ -148,14 +145,24 @@ private fun HomeContent(
     onMyPageClick: () -> Unit
 ) {
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("헬품타") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = {
+                    Text(
+                        text = "헬품타",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
                 actions = {
                     IconButton(onClick = onMyPageClick) {
                         Icon(
                             Icons.Default.AccountCircle,
-                            contentDescription = "마이페이지"
+                            contentDescription = "마이페이지",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -165,8 +172,12 @@ private fun HomeContent(
             FloatingActionButton(
                 onClick = onCreateClick,
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ){
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp
+                )
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "그룹 만들기")
             }
         }
@@ -177,7 +188,7 @@ private fun HomeContent(
                 .padding(paddingValues)
         ) {
             when {
-                uiState.isLoading -> {
+                uiState.isLoading && uiState.groups.isEmpty() -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -194,37 +205,44 @@ private fun HomeContent(
                     EmptyGuide(modifier = Modifier.align(Alignment.Center))
                 }
                 else -> {
+                    val padding = PaddingValues(
+                        start = 20.dp,
+                        end = 20.dp,
+                        top = 8.dp,
+                        bottom = 100.dp   // FAB 가림 방지
+                    )
+
                     when (uiState.homeLayout) {
                         HomeLayout.GRID -> {
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(16.dp),
+                                contentPadding = padding,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(
                                     items = uiState.groups,
-                                    key = { it.id }
-                                ) { group ->
+                                    key = { it.group.id }
+                                ) { item ->
                                     GroupCard(
-                                        group = group,
-                                        onClick = { onGroupClick(group.id) }
+                                        item = item,
+                                        onClick = { onGroupClick(item.group.id) }
                                     )
                                 }
                             }
                         }
                         HomeLayout.LIST -> {
                             LazyColumn(
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                contentPadding = padding,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(
                                     items = uiState.groups,
-                                    key = { it.id }
-                                ) { group ->
+                                    key = { it.group.id }
+                                ) { item ->
                                     GroupListCard(
-                                        group = group,
-                                        onClick = { onGroupClick(group.id) }
+                                        item = item,
+                                        onClick = { onGroupClick(item.group.id) }
                                     )
                                 }
                             }
@@ -243,109 +261,55 @@ private fun EmptyGuide(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 32.dp)
     ) {
-        // 세로 라인 + 인트로 문단
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.primary)
-            )
+        Text(
+            text = "헬품타에 오신 걸 환영해요",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
 
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column {
-                Text(
-                    text = "헬품타에 오신 걸 환영해요",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "친구들과 그룹을 만들어\n운동 기록을 함께 공유해보세요",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                GuideItem("그룹은 최대 ${GroupPolicy.MAX_MEMBERS}명까지 참여할 수 있어요")
-                GuideItem("하루에 한 번 운동 기록을 남길 수 있어요")
-                GuideItem("그룹원들의 하루 기록을 한 장의 사진으로 저장할 수 있어요")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Row(
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(18.dp)
-                    .shadow(2.dp, RoundedCornerShape(5.dp))
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(12.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            Text(
-                text = "버튼으로 그룹을 만들어보세요",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(Modifier.height(10.dp))
 
         Text(
-            text = "친구에게 받은 초대 링크로도 참여할 수 있어요",
+            text = "친구들과 그룹을 만들어\n운동 기록을 함께 공유해보세요",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.height(36.dp))
+
+        GuideLine("최대 ${GroupPolicy.MAX_MEMBERS}명까지 함께할 수 있어요")
+        GuideLine("하루에 한 번 운동 기록을 남겨요")
+        GuideLine("그룹원들의 하루 기록을 사진 한 장으로 저장해요")
+
+        Spacer(Modifier.height(36.dp))
+
+        Text(
+            text = "오른쪽 아래 + 버튼으로 시작하거나\n친구에게 받은 초대 링크로 참여할 수 있어요",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 @Composable
-private fun GuideItem(text: String) {
-    Row(verticalAlignment = Alignment.Top) {
-        Text(
-            text = "·",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+private fun GuideLine(text: String) {
+    Row(
+        modifier = Modifier.padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(4.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.outlineVariant)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -355,10 +319,22 @@ private fun GuideItem(text: String) {
 private fun HomeContentPreview() {
     val dummyState = HomeContract.UiState(
         groups = listOf(
-            Group(id = "1", name = "아침 운동 크루", memberCount = 5),
-            Group(id = "2", name = "저녁 헬스 팀", memberCount = 3),
-            Group(id = "3", name = "주말 등산", memberCount = 8),
-            Group(id = "4", name = "헬창 모임", memberCount = 12)
+            GroupToday(
+                group = Group(id = "1", name = "아침 운동 크루", memberCount = 4),
+                wroteCount = 2, didIWrite = false
+            ),
+            GroupToday(
+                group = Group(id = "2", name = "저녁 헬스 팀", memberCount = 3),
+                wroteCount = 3, didIWrite = true
+            ),
+            GroupToday(
+                group = Group(id = "3", name = "주말 등산", memberCount = 4),
+                wroteCount = 0, didIWrite = false
+            ),
+            GroupToday(
+                group = Group(id = "4", name = "헬창 모임", memberCount = 2),
+                wroteCount = 1, didIWrite = true
+            )
         )
     )
 

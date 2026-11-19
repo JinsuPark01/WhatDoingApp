@@ -1,27 +1,51 @@
 package com.jinsupark.helpumta.ui.screen.group.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
+import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * 기록 한 건.
+ *
+ * 카드 테두리·배경·그림자를 모두 뺐다. 인증샷이 이 화면의 주인공이고,
+ * 사진 자체가 덩어리 역할을 하므로 상자를 한 겹 더 두를 필요가 없다.
+ * 항목 구분은 넉넉한 세로 간격이 맡는다.
+ */
 @Composable
 fun RecordCard(
     record: WorkoutRecord,
@@ -31,138 +55,180 @@ fun RecordCard(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // 헤더: 아바타 + 이름/시간 + 연필
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 아바타 (이니셜)
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = record.userName.firstOrNull()?.toString() ?: "",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+    Column(modifier = modifier.fillMaxWidth()) {
 
-                Spacer(modifier = Modifier.width(12.dp))
+        // ── 작성자 줄
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Avatar(name = record.userName)
 
-                // 이름 + 시간
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = record.userName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = formatTime(record.createdAt),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Spacer(Modifier.width(10.dp))
 
-                // 수정 / 삭제
-                if (canEdit) {
-                    IconButton(
-                        onClick = onEditClick,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "수정",
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                if (canDelete) {
-                    IconButton(
-                        onClick = onDeleteClick,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "삭제",
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            // 운동 정보
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(
-                    onClick = {},
-                    label = {
-                        Text(
-                            text = record.workoutType,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    modifier = Modifier.weight(1f, fill = false)   // 남은 공간만, 양보
-                )
-                AssistChip(
-                    onClick = {},
-                    label = {
-                        Text(
-                            text = "${record.workoutDuration}분",
-                            maxLines = 1,
-                            softWrap = false                        // 줄바꿈/깨짐 방지
-                        )
-                    }
-                )
-            }
-
-            // 소감 (있으면)
-            if (record.comment.isNotBlank()) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = record.comment,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 4,
+                    text = record.userName,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
+                // 칩 대신 한 줄로 흘린다
+                Text(
+                    text = "${record.workoutType} · ${record.workoutDuration}분 · ${formatTime(record.createdAt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // 인증샷 (있으면)
-            if (record.imageUrl.isNotBlank()) {
-                AsyncImage(
-                    model = record.imageUrl,
-                    contentDescription = "운동 인증샷",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(12.dp))
+            if (canEdit || canDelete) {
+                RecordMenu(
+                    canEdit = canEdit,
+                    canDelete = canDelete,
+                    onEditClick = onEditClick,
+                    onDeleteClick = onDeleteClick
+                )
+            }
+        }
+
+        // ── 사진
+        if (record.imageUrl.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            AsyncImage(
+                model = record.imageUrl,
+                contentDescription = "${record.userName}의 인증샷",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(4f / 3f)   // 피드 리듬을 맞추기 위해 비율 고정
+                    .clip(MaterialTheme.shapes.large)
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+            )
+        }
+
+        // ── 한줄 소감
+        if (record.comment.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = record.comment,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+private fun Avatar(name: String) {
+    // 브랜드 색을 장식에 쓰지 않는다. 주황은 FAB 하나로 충분하다.
+    Box(
+        modifier = Modifier
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = name.firstOrNull()?.toString() ?: "?",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun RecordMenu(
+    canEdit: Boolean,
+    canDelete: Boolean,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                imageVector = Icons.Default.MoreHoriz,
+                contentDescription = "기록 메뉴",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            if (canEdit) {
+                DropdownMenuItem(
+                    text = { Text("수정") },
+                    onClick = {
+                        expanded = false
+                        onEditClick()
+                    }
+                )
+            }
+            if (canDelete) {
+                DropdownMenuItem(
+                    text = {
+                        Text("삭제", color = MaterialTheme.colorScheme.error)
+                    },
+                    onClick = {
+                        expanded = false
+                        onDeleteClick()
+                    }
                 )
             }
         }
     }
 }
 
-private fun formatTime(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MM/dd HH:mm", Locale.KOREAN)
-    return sdf.format(Date(timestamp))
+private fun formatTime(millis: Long): String =
+    SimpleDateFormat("a h:mm", Locale.KOREA).format(Date(millis))
+
+@Preview(showBackground = true)
+@Composable
+private fun RecordCardPreview() {
+    HelpumtaTheme {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(28.dp)
+        ) {
+            RecordCard(
+                record = WorkoutRecord(
+                    id = "1",
+                    groupId = "1",
+                    userId = "u1",
+                    userName = "이정수",
+                    workoutType = "사이클",
+                    workoutDuration = 90,
+                    imageUrl = "",
+                    comment = "퇴근 후",
+                    createdAt = System.currentTimeMillis()
+                ),
+                canEdit = true,
+                canDelete = true,
+                onEditClick = {},
+                onDeleteClick = {}
+            )
+            RecordCard(
+                record = WorkoutRecord(
+                    id = "2",
+                    groupId = "1",
+                    userId = "u2",
+                    userName = "최이랑",
+                    workoutType = "러닝",
+                    workoutDuration = 45,
+                    imageUrl = "",
+                    comment = "한강런",
+                    createdAt = System.currentTimeMillis() - 3600000
+                ),
+                canEdit = false,
+                canDelete = false,
+                onEditClick = {},
+                onDeleteClick = {}
+            )
+        }
+    }
 }

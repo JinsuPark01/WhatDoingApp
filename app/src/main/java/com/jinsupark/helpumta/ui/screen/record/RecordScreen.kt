@@ -11,8 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.jinsupark.helpumta.ui.component.FieldLabel
+import com.jinsupark.helpumta.ui.component.FormField
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 
 @Composable
@@ -94,9 +94,18 @@ private fun RecordContent(
     onPickImage: () -> Unit
 ) {
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(if (uiState.isEditMode) "기록 수정" else "운동 기록") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = {
+                    Text(
+                        text = if (uiState.isEditMode) "기록 수정" else "운동 기록",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -124,114 +133,125 @@ private fun RecordContent(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // 운동 종류
-                OutlinedTextField(
+                FormField(
+                    label = "운동 종류",
                     value = uiState.workoutType,
                     onValueChange = { onIntent(RecordContract.Intent.UpdateWorkoutType(it)) },
-                    label = { Text("운동 종류") },
-                    placeholder = { Text("예: 헬스, 러닝, 사이클") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    placeholder = "헬스, 러닝, 사이클…"
                 )
 
-                // 운동 시간
-                OutlinedTextField(
+                FormField(
+                    // "최대 1440"을 라벨에서 뺐다.
+                    // 24시간이라는 상한을 사용자가 미리 알아야 할 이유가 없고,
+                    // 넘겼을 때 알려주는 게 라벨에 적어두는 것보다 낫다.
+                    label = "운동 시간 (분)",
                     value = uiState.workoutDuration,
                     onValueChange = { onIntent(RecordContract.Intent.UpdateDuration(it)) },
-                    label = { Text("운동 시간 (분, 최대 1440)") },
-                    placeholder = { Text("예: 60") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
+                    placeholder = "60",
+                    keyboardType = KeyboardType.Number
                 )
 
-                // 인증샷 라벨 + 사진 제거 (한 줄)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(36.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "인증샷 (선택)",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    if (uiState.imageUri != null) {
-                        TextButton(
-                            onClick = { onIntent(RecordContract.Intent.UpdateImage(null)) },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                        ) {
-                            Text("사진 제거")
-                        }
-                    }
-                }
+                // ── 인증샷
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FieldLabel("인증샷 (선택)")
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { onPickImage() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (uiState.imageUri != null) {
-                        AsyncImage(
-                            model = uiState.imageUri,
-                            contentDescription = "인증샷",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.AddPhotoAlternate,
-                                contentDescription = "이미지 추가",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        if (uiState.imageUri != null) {
                             Text(
-                                "사진 추가",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "제거",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .clip(MaterialTheme.shapes.small)
+                                    .clickable {
+                                        onIntent(RecordContract.Intent.UpdateImage(null))
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
                     }
-                }
 
-                // 한줄 소감
-                OutlinedTextField(
-                    value = uiState.comment,
-                    onValueChange = { onIntent(RecordContract.Intent.UpdateComment(it)) },
-                    label = { Text("한줄 소감 (선택)") },
-                    placeholder = { Text("오늘 운동 어땠나요?") },
-                    minLines = 2,
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    Spacer(Modifier.height(8.dp))
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // 작성/수정 완료 버튼
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                } else {
-                    Button(
-                        onClick = { onIntent(RecordContract.Intent.SubmitRecord) },
-                        enabled = uiState.isSubmitEnabled,
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            // 그룹 상세의 RecordCard가 4:3으로 자른다.
+                            // 미리보기를 16:9로 두면 올릴 때 본 구도와 올린 뒤 구도가 달라진다.
+                            .aspectRatio(4f / 3f)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .clickable { onPickImage() },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(if (uiState.isEditMode) "수정 완료" else "기록 남기기")
+                        if (uiState.imageUri != null) {
+                            AsyncImage(
+                                model = uiState.imageUri,
+                                contentDescription = "인증샷",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.AddPhotoAlternate,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Text(
+                                    text = "사진 추가",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                FormField(
+                    label = "한줄 소감 (선택)",
+                    value = uiState.comment,
+                    onValueChange = { onIntent(RecordContract.Intent.UpdateComment(it)) },
+                    placeholder = "오늘 운동 어땠나요?",
+                    singleLine = false,
+                    minLines = 3,
+                    maxLines = 5
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Button(
+                    onClick = { onIntent(RecordContract.Intent.SubmitRecord) },
+                    enabled = uiState.isSubmitEnabled && !uiState.isLoading,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                ) {
+                    // 버튼을 스피너로 갈아끼우면 높이가 달라져 화면이 들썩인다.
+                    // 버튼은 그대로 두고 내용만 바꾼다.
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (uiState.isEditMode) "수정 완료" else "기록 남기기",
+                            style = MaterialTheme.typography.labelLarge
+                        )
                     }
                 }
             }
@@ -245,6 +265,23 @@ private fun RecordContentPreview() {
     HelpumtaTheme {
         RecordContent(
             uiState = RecordContract.UiState(),
+            onIntent = {},
+            onNavigateBack = {},
+            onPickImage = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun RecordContentFilledPreview() {
+    HelpumtaTheme {
+        RecordContent(
+            uiState = RecordContract.UiState(
+                workoutType = "사이클",
+                workoutDuration = "90",
+                comment = "퇴근하고 바로 감"
+            ),
             onIntent = {},
             onNavigateBack = {},
             onPickImage = {}

@@ -1,13 +1,13 @@
 package com.jinsupark.helpumta.ui.screen.home
 
-import com.jinsupark.helpumta.domain.model.Group
+import com.jinsupark.helpumta.domain.model.GroupToday
 import com.jinsupark.helpumta.domain.model.HomeLayout
 
 object HomeContract {
 
     data class UiState(
         val isLoading: Boolean = false,
-        val groups: List<Group> = emptyList(),
+        val groups: List<GroupToday> = emptyList(),
         val homeLayout: HomeLayout = HomeLayout.GRID,
         val errorMessage: String? = null
     )

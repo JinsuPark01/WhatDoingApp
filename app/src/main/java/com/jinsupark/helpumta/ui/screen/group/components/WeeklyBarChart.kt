@@ -10,10 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 private val DAY_LABELS = listOf("월", "화", "수", "목", "금", "토", "일")
 
@@ -25,12 +22,12 @@ fun WeeklyBarChart(
 ) {
     val maxMinutes = (minutesPerDay.maxOrNull() ?: 0).coerceAtLeast(1)
     val barColor = MaterialTheme.colorScheme.primary
-    val emptyColor = MaterialTheme.colorScheme.surfaceVariant
+    val emptyColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(160.dp),
+        // 높이를 고정하지 않는다.
+        // 160dp로 묶어두면 내용(약 128dp)보다 커서 위쪽에 빈 공간이 남는다.
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Bottom
     ) {
@@ -39,21 +36,20 @@ fun WeeklyBarChart(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 값 (0이면 생략)
+                // 값 (0이면 자리만 차지)
                 Text(
                     text = if (minutes > 0) "$minutes" else "",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
 
                 // 막대
                 Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(100.dp)
+                        .height(80.dp)
                 ) {
                     val ratio = minutes.toFloat() / maxMinutes
                     val barHeight = (size.height * ratio).coerceAtLeast(
@@ -70,15 +66,20 @@ fun WeeklyBarChart(
                     )
                 }
 
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
 
-                // 요일 (오늘 강조)
+                // 요일 — 오늘은 굵기로만 구분한다.
+                // 주황은 막대가 이미 쓰고 있어서, 레이블까지 주황이면 화면에 포인트가 흩어진다.
+                // 두 슬롯 모두 13sp라 굵기만 달라지고 베이스라인은 흔들리지 않는다.
                 Text(
                     text = DAY_LABELS[index],
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (index == todayIndex) FontWeight.Bold else FontWeight.Normal,
+                    style = if (index == todayIndex) {
+                        MaterialTheme.typography.labelMedium   // 13sp SemiBold
+                    } else {
+                        MaterialTheme.typography.bodySmall     // 13sp Normal
+                    },
                     color = if (index == todayIndex) {
-                        MaterialTheme.colorScheme.primary
+                        MaterialTheme.colorScheme.onSurface
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     }

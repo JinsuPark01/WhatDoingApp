@@ -5,7 +5,6 @@ package com.jinsupark.helpumta.ui.screen.group
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -15,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,9 +63,18 @@ private fun GroupJoinContent(
     onNavigateBack: () -> Unit
 ) {
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("그룹 참여") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = {
+                    Text(
+                        text = "그룹 참여",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -89,118 +97,149 @@ private fun GroupJoinContent(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                uiState.errorMessage != null && uiState.group == null -> {
-                    Text(
-                        text = uiState.errorMessage,
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.error
+
+                uiState.group == null -> {
+                    NotFoundMessage(
+                        message = uiState.errorMessage ?: "그룹을 찾을 수 없어요",
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                uiState.group != null -> {
+
+                else -> {
+                    val group = uiState.group
+                    val isFull = group.memberCount >= GroupPolicy.MAX_MEMBERS
+
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                            .padding(horizontal = 20.dp, vertical = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // 그룹 이미지
-                        if (uiState.group.imageUrl.isNotBlank()) {
-                            AsyncImage(
-                                model = uiState.group.imageUrl,
-                                contentDescription = "그룹 이미지",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(120.dp)
-                                    .clip(CircleShape)
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(120.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                                contentAlignment = Alignment.Center
-                            ) {
+                        Spacer(Modifier.weight(1f))
+
+                        // 원형이 아니라 둥근 사각이다.
+                        // 원형은 사람 프로필의 관습이고, 이 이미지는 홈 카드에서
+                        // 둥근 사각으로 쓰인다. 같은 이미지가 화면마다 다른 모양이면
+                        // 같은 그룹인지 알아보기 어려워진다.
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(MaterialTheme.shapes.large)
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (group.imageUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = group.imageUrl,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
                                 Text(
-                                    text = uiState.group.name.firstOrNull()?.toString() ?: "",
-                                    style = MaterialTheme.typography.headlineLarge
+                                    text = group.name.take(1),
+                                    style = MaterialTheme.typography.displaySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(Modifier.height(20.dp))
 
-                        // 그룹 이름
                         Text(
-                            text = uiState.group.name,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                            text = group.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(Modifier.height(6.dp))
 
-                        // 멤버 수
-                        val isFull = uiState.group.memberCount >= GroupPolicy.MAX_MEMBERS
                         Text(
-                            text = "멤버 ${uiState.group.memberCount} / ${GroupPolicy.MAX_MEMBERS}명",
+                            text = "멤버 ${group.memberCount}/${GroupPolicy.MAX_MEMBERS}명",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (isFull) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
+                            color = if (isFull) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (isFull) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "정원이 가득 찼어요",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
 
-                        // 그룹 설명
-                        if (uiState.group.description.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(16.dp))
+                        if (group.description.isNotBlank()) {
+                            Spacer(Modifier.height(16.dp))
                             Text(
-                                text = uiState.group.description,
+                                text = group.description,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
                             )
                         }
 
-                        // 에러 메시지
-                        uiState.errorMessage?.let {
-                            Spacer(modifier = Modifier.height(16.dp))
+                        // 그룹 정보는 떠 있는데 참여만 실패한 경우
+                        uiState.errorMessage?.let { message ->
+                            Spacer(Modifier.height(16.dp))
                             Text(
-                                text = it,
+                                text = message,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
+                                textAlign = TextAlign.Center
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(48.dp))
+                        Spacer(Modifier.weight(1f))
 
-                        // 참여 버튼
-                        if (uiState.isJoining) {
-                            CircularProgressIndicator()
-                        } else {
-                            val isFull = uiState.group.memberCount >= GroupPolicy.MAX_MEMBERS
-                            Button(
-                                onClick = { onIntent(GroupJoinContract.Intent.SubmitJoin) },
-                                enabled = !uiState.isJoining && !isFull,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                            ) {
-                                Text(if (isFull) "정원 마감" else "이 그룹에 참여하기")
+                        Button(
+                            onClick = { onIntent(GroupJoinContract.Intent.SubmitJoin) },
+                            enabled = !uiState.isJoining && !isFull,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                        ) {
+                            if (uiState.isJoining) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = if (isFull) "정원이 가득 찼어요" else "이 그룹에 참여하기",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * 빨간 글씨 한 줄만 띄우지 않는다.
+ * 링크가 만료된 건 사용자 잘못도 아니고 시스템 고장도 아닌데,
+ * error 색으로 칠하면 뭔가 망가진 것처럼 읽힌다.
+ */
+@Composable
+private fun NotFoundMessage(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "초대 링크가 만료됐거나 그룹이 사라졌을 수 있어요",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -214,7 +253,25 @@ private fun GroupJoinContentPreview() {
                     id = "1",
                     name = "아침 운동 크루",
                     description = "매일 아침 6시에 운동하는 사람들 모임",
-                    memberCount = 5
+                    memberCount = 3
+                )
+            ),
+            onIntent = {},
+            onNavigateBack = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun GroupJoinFullPreview() {
+    HelpumtaTheme {
+        GroupJoinContent(
+            uiState = GroupJoinContract.UiState(
+                group = Group(
+                    id = "1",
+                    name = "헬스팟",
+                    memberCount = 4
                 )
             ),
             onIntent = {},

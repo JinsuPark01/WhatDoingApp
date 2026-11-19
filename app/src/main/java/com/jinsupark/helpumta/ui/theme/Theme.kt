@@ -1,106 +1,134 @@
 package com.jinsupark.helpumta.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+/**
+ * 색 원칙 세 가지
+ *  1. 배경·텍스트는 완전 무채색. 브랜드 색이 surface까지 번지지 않게 한다.
+ *  2. 주황은 모드가 바뀌어도 같은 값.
+ *  3. 주황은 포인트에만 — FAB, 주요 버튼, 달성 표시. 나머지는 무채색.
+ *
+ * secondary·tertiary까지 무채색으로 고정한 건 의도적이다.
+ * 비워두면 Material3가 primary에서 색을 파생시켜 베이지가 다시 번진다.
+ */
 private val LightColorScheme = lightColorScheme(
     primary = Orange,
-    onPrimary = Color.White,
-    primaryContainer = OrangeContainer,
-    onPrimaryContainer = OnOrangeContainer,
+    onPrimary = White,
+    primaryContainer = OrangeTintLight,
+    onPrimaryContainer = OrangePressed,
 
-    secondary = OrangeDark,
-    onSecondary = Color.White,
-    secondaryContainer = BeigeDark,
-    onSecondaryContainer = BrownText,
+    secondary = Gray900,
+    onSecondary = White,
+    secondaryContainer = Gray100,
+    onSecondaryContainer = Gray900,
 
-    tertiary = BrownTextSoft,
-    onTertiary = Color.White,
+    tertiary = Gray600,
+    onTertiary = White,
+    tertiaryContainer = Gray100,
+    onTertiaryContainer = Gray900,
 
-    background = Color.White,
-    onBackground = BrownText,
+    background = White,
+    onBackground = Gray900,
 
-    surface = Color.White,
-    onSurface = BrownText,
-    surfaceVariant = BeigeDark,
-    onSurfaceVariant = BrownTextSoft,
+    surface = White,
+    onSurface = Gray900,
+    surfaceVariant = Gray50,
+    onSurfaceVariant = Gray600,
 
-    surfaceContainer = Color.White,
-    surfaceContainerHighest = BeigeLight,
+    surfaceContainerLowest = White,
+    surfaceContainerLow = Gray50,
+    surfaceContainer = Gray50,
+    surfaceContainerHigh = Gray100,
+    surfaceContainerHighest = Gray100,
+
+    outline = Gray200,
+    outlineVariant = Gray100,
 
     error = ErrorRed,
-    onError = Color.White
+    onError = White,
+    errorContainer = ErrorContainerLight,
+    onErrorContainer = OnErrorContainerLight,
+
+    inverseSurface = Gray900,
+    inverseOnSurface = White,
+    scrim = Scrim
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Orange,
-    onPrimary = Color.White,
-    primaryContainer = OrangeDark,
-    onPrimaryContainer = OrangeContainer,
+    primary = Orange,            // 라이트와 동일
+    onPrimary = White,
+    primaryContainer = OrangeTintDark,
+    onPrimaryContainer = Orange,
 
-    secondary = Color(0xFFFF9D5C),
-    onSecondary = Color(0xFF3D3325),
-    secondaryContainer = Color(0xFF4A3D2C),
-    onSecondaryContainer = Beige,
+    secondary = DarkText,
+    onSecondary = Dark0,
+    secondaryContainer = Dark100,
+    onSecondaryContainer = DarkText,
 
-    tertiary = BeigeDark,
-    onTertiary = Color(0xFF3D3325),
+    tertiary = Gray400,
+    onTertiary = Dark0,
+    tertiaryContainer = Dark100,
+    onTertiaryContainer = DarkText,
 
-    background = Color(0xFF1A1611),     // 어두운 갈색빛 배경
-    onBackground = Beige,
+    background = Dark0,
+    onBackground = DarkText,
 
-    surface = Color(0xFF1A1611),
-    onSurface = Beige,
-    surfaceVariant = Color(0xFF4A3D2C),
-    onSurfaceVariant = BeigeDark,
+    surface = Dark0,
+    onSurface = DarkText,
+    surfaceVariant = Dark50,
+    onSurfaceVariant = Gray400,
 
-    surfaceContainer = Color(0xFF1E1E1E),
-    surfaceContainerHighest = Color(0xFF252017),
+    surfaceContainerLowest = Dark0,
+    surfaceContainerLow = Dark50,
+    surfaceContainer = Dark50,
+    surfaceContainerHigh = Dark100,
+    surfaceContainerHighest = Dark100,
 
-    error = Color(0xFFF2B8B5),
-    onError = Color(0xFF3D3325)
+    outline = Dark100,
+    outlineVariant = Dark100,
+
+    error = ErrorRedDark,
+    onError = Dark0,
+    errorContainer = ErrorContainerDark,
+    onErrorContainer = ErrorRedDark,
+
+    inverseSurface = DarkText,
+    inverseOnSurface = Dark0,
+    scrim = Scrim
 )
 
 @Composable
 fun HelpumtaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    // dynamicColor 파라미터를 제거했다.
+    // 기기 배경화면 색을 따라가면 브랜드 색이 사라진다.
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view)
+                .isAppearanceLightStatusBars = !darkTheme
         }
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = HelpumtaShapes,
         content = content
     )
 }
