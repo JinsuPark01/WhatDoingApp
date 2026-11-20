@@ -4,7 +4,7 @@
 
 친구들과 그룹을 만들어 운동 기록을 공유하고, 하루의 기록을 한 장의 이미지로 추출하는 Android 운동 기록 앱입니다.
 
-> **Google Play 정식 출시 (2026.08)** — 비공개 테스트 12명 / 14일 요건을 거쳐 프로덕션 출시까지 완료했습니다.
+> **Google Play 정식 출시 (2026.08)** — 비공개 테스트 12명 / 14일 요건을 거쳐 프로덕션 출시까지 완료했고, 이후에도 통계 · 푸시 알림 · 홈 화면 위젯을 추가하며 운영 중입니다. (현재 v1.0.4)
 
 > 열품타(열정을 품은 타이머)의 운동 버전 컨셉으로, 멀리 있는 운동 친구들과 서로 자극받으며 운동 습관을 유지하는 것을 목표로 합니다.
 
@@ -15,11 +15,13 @@
 
 ## 🎥 Demo / 📷 Screenshots
 
-|         로그인          |         홈          |        그룹 상세         |        마이페이지         |
-|:--------------------:|:------------------:|:--------------------:|:--------------------:|
-| ![](docs/login.jpg)  | ![](docs/home.jpg) | ![](docs/detail.jpg) | ![](docs/mypage.jpg) |
-|    운동 기록 작성(dark)    |       날짜별 조회       |        사진 추출         |     그룹 참여(dark)      |
-| ![](docs/record.jpg) | ![](docs/date.jpg) | ![](docs/image.jpg)  |  ![](docs/join.jpg)  |
+|           홈           |        그룹 상세         |          통계           |         사진 추출          |
+|:---------------------:|:--------------------:|:---------------------:|:----------------------:|
+|  ![](docs/home.jpg)   | ![](docs/detail.jpg) | ![](docs/statistics.jpg) |  ![](docs/image.jpg)   |
+|       운동 기록 작성        |        날짜별 조회         |         그룹 참여          |         마이페이지          |
+| ![](docs/record.jpg)  |  ![](docs/date.jpg)  |  ![](docs/join.jpg)   | ![](docs/mypage.jpg)   |
+|      홈 화면 위젯 3종       |       리마인더 알림        |          로그인          |                        |
+| ![](docs/widget.jpg)  |  ![](docs/fcm.jpg)   |  ![](docs/login.jpg)  |                        |
 
 ---
 
@@ -34,6 +36,9 @@
 - 날짜별로 그룹 기록 조회
 - 당일 본인 기록 수정 / 기록 삭제
 - 선택한 날짜의 기록을 한 장의 이미지로 추출 (미기록자는 zzz 처리)
+- 그룹별 주간 · 월간 운동 통계와 그룹원 비교
+- 기록이 없는 날 저녁 리마인더 알림 (FCM)
+- 홈 화면 위젯 3종으로 앱을 열지 않고 오늘 현황 확인
 
 ---
 
@@ -43,10 +48,13 @@
 |---|---|
 | Language | Kotlin |
 | UI | Jetpack Compose · Navigation Compose |
+| Widget | Jetpack Glance |
 | Architecture | Clean Architecture (UI / Domain / Data) · MVI |
 | DI | Hilt |
 | Async | Coroutines · Flow |
-| Backend | Firebase (Auth · Firestore · Storage · Hosting) |
+| Local | DataStore (Preferences) |
+| Backend | Firebase (Auth · Firestore · Storage · Hosting · Cloud Messaging · App Check) |
+| Server | Cloud Functions (TypeScript) · Cloud Scheduler |
 | Image | Coil · ExifInterface |
 
 ---
@@ -68,6 +76,7 @@ UI Layer        ──►  Domain Layer       ──►  Data Layer
 - **UI는 Data를 직접 참조하지 않음** — 반드시 UseCase(Domain)를 경유. pass-through 수준의 UseCase라도 이 경계를 위해 유지
 - **Mapper는 Data Layer** — `DocumentSnapshot` 의존이라 Domain에 둘 수 없음
 - **비즈니스 규칙(정책)은 Domain** — 그룹 인원 제한, 운동 시간 상한 등은 `Policy` 객체로 Domain에 단일 정의
+- **위젯도 같은 경계를 지킴** — Glance는 ViewModel을 쓸 수 없지만, Hilt `EntryPoint`로 UseCase를 주입받아 Repository를 직접 참조하지 않음
 
 ### MVI (Contract 통합 방식)
 
@@ -82,10 +91,15 @@ UI Layer        ──►  Domain Layer       ──►  Data Layer
 
 ```
 com.jinsupark.helpumta/
-├── ui/          # Compose 화면, ViewModel, Contract, Navigation
+├── ui/          # Compose 화면, ViewModel, Contract, Navigation, theme
 ├── domain/      # Model, Policy, Repository 인터페이스, UseCase
-├── data/        # Repository 구현, Mapper, 외부 연동(Auth/Storage 등)
+├── data/        # Repository 구현, Mapper, 외부 연동(Auth/Storage/FCM 등)
+├── widget/      # Glance 위젯 3종, WidgetUpdater, 위젯 전용 테마
 └── di/          # Hilt 모듈
+
+functions/       # Cloud Functions (TypeScript) — 리마인더 스케줄 발송
+firestore.rules  # Firestore 보안 규칙 (레포에서 버전 관리)
+storage.rules    # Storage 보안 규칙
 ```
 
 ---
@@ -107,22 +121,46 @@ com.jinsupark.helpumta/
 
 ### 📝 운동 기록
 - 운동 종목 · 시간 · 인증샷 · 소감 작성 (하루 1회)
-- 날짜별 기록 조회 (Firestore 범위 쿼리)
+- 날짜별 기록 조회 (Firestore 범위 쿼리) · 캘린더에서 본인이 기록한 날 표시
 - **당일 본인 기록 수정** — 작성/수정 화면 통합(AddEdit 패턴), 이미지 교체/제거/유지 처리
 - **본인 기록 삭제** — Storage 이미지 동시 정리, 당일 기록 삭제 시 재작성 가능
 - **업로드 전 이미지 압축** — 장변 1920px / JPEG q85 리사이즈 + EXIF 회전 보정 (평균 6MB → 400KB)
 - 운동 시간 입력 상한 (도메인 정책 기반)
+
+### 📊 통계
+- 그룹 상세를 **기록 / 통계 탭**으로 분리 (날짜 네비게이션과 FAB은 기록 탭에만 노출)
+- 이번 주 운동 시간 + 요일별 막대 차트
+- 이번 달 운동한 날 수 · 운동 시간, 최근 30일 중 운동한 날 수
+- 이번 주 그룹원 비교 (상대 비율 막대)
+- **통계는 그룹 범위로 한정** — 같은 운동을 여러 그룹에 올릴 수 있어 전체 합산은 의미가 없음
+- 운동 종목 분포와 연속 달성일(스트릭)은 의도적으로 제외 (아래 트레이드오프 참고)
+
+### 🔔 리마인더 알림
+- 매일 21시(KST) 기준, **오늘 기록이 없는 사용자에게만** 발송
+- Cloud Functions + Cloud Scheduler로 조건 판단 후 FCM 발송
+- 참여 그룹 수와 무관하게 **사용자당 1건**으로 집계, 알림 ID를 고정해 전날 알림을 대체
+- 탭하면 해당 그룹으로 이동 (단일 그룹인 경우)
+- **앱 내 on/off 스위치는 만들지 않음** — OS 알림 채널 설정이 단일 진실 소스 (아래 트레이드오프 참고)
+
+### 🧩 홈 화면 위젯 (Glance)
+- **오늘 기록** — 오늘 작성한 그룹 수 / 전체, 바로 기록하기 버튼
+- **그룹 현황** — 그룹별 작성 여부 목록 (크기 조절 지원)
+- **이번 주** — 요일별 기록 여부 점 표시
+- 앱 데이터 변경 시 `WidgetUpdater`가 조회 후 위젯 상태를 갱신
+- Material You 동적 색상을 차단하고 **앱과 동일한 색 스킴 주입**
 
 ### 🖼 사진 추출
 - 선택한 날짜의 그룹 기록을 분할 이미지로 추출
 - 미기록 멤버는 zzz 처리 (`users` 컬렉션으로 미기록자 닉네임 표시)
 - 갤러리 저장 (Compose `graphicsLayer` 캡처 + MediaStore) 후 자동 복귀
 - 긴 닉네임/소감/종목에 대한 레이아웃 안정화 (우선순위 기반 말줄임)
+- **시스템 글꼴 배율과 무관하게 동일한 결과물** — 캡처 영역의 `fontScale`을 1로 고정
 
-### 🧭 온보딩 / 안내
+### 🧭 온보딩 / 설정
 - 그룹이 없는 첫 사용자에게 홈 화면에서 앱 사용 흐름 안내
 - 기록이 없는 날 안내 문구를 당일 / 과거로 분기 (당일은 작성 유도)
-- 마이페이지 앱 버전 표시
+- **홈 화면 배치 전환** — 2열 그리드 / 1열 목록 (DataStore 저장)
+- 마이페이지 앱 버전 표시, 알림 허용 상태 표시
 
 ---
 
@@ -145,9 +183,9 @@ com.jinsupark.helpumta/
 
 ### 4️⃣ 에러 처리의 레이어 분리
 - Firebase 예외를 화면에 그대로 노출하지 않고, 레이어별 책임으로 분리:
-    - **Data**: Firebase 예외 → 도메인 에러 타입(`AuthError`)으로 분류 (Firebase를 아는 유일한 레이어)
-    - **Domain**: 에러 타입 정의만 (Firebase·문구 모두 모름)
-    - **UI**: 에러 타입 → 한글 문구로 변환 (확장 함수로 도메인 타입 비침투)
+  - **Data**: Firebase 예외 → 도메인 에러 타입(`AuthError`)으로 분류 (Firebase를 아는 유일한 레이어)
+  - **Domain**: 에러 타입 정의만 (Firebase·문구 모두 모름)
+  - **UI**: 에러 타입 → 한글 문구로 변환 (확장 함수로 도메인 타입 비침투)
 - 자주 마주치고 케이스 구분이 필요한 인증 에러는 타입 매핑, 드물게 발생하는 Firestore 에러는 한글 고정 메시지로 차등 처리 (오버스펙 회피)
 
 ### 5️⃣ 에러 표시 방식의 판단 기준
@@ -163,6 +201,12 @@ com.jinsupark.helpumta/
 
 초기에는 화면마다 방식이 달랐고 일부 실패 경로는 아무 안내도 표시되지 않았는데, 위 기준으로 일원화했습니다.
 "표시할 자리가 있는가"가 아니라 **"사용자가 무엇을 해야 하는가"**를 기준으로 삼은 것이 핵심입니다.
+
+### 6️⃣ 위젯에서도 레이어 경계 유지
+
+Glance 위젯은 `@HiltViewModel`을 쓸 수 없습니다. 그렇다고 Repository를 직접 부르면 "UI는 Domain만 안다"는 원칙이 위젯에서만 깨집니다.
+
+Hilt `EntryPoint`로 UseCase를 꺼내 쓰는 방식으로 해결했습니다. 위젯은 앱의 다른 화면과 **똑같이 UseCase만 참조**합니다.
 
 ---
 
@@ -294,22 +338,107 @@ allow delete: if isSignedIn();
 
 **교훈**: 서버 설정 변경은 배포된 클라이언트 전체를 대상으로 하므로, 코드 배포와 달리 "누가 아직 옛 버전을 쓰는가"를 먼저 확인해야 한다.
 
+### 1️⃣4️⃣ 위젯이 갱신되지 않던 버그 — 틀린 가설 두 번 (Glance)
+
+이번 작업에서 가장 오래 붙잡은 버그.
+
+**증상**: 이미지가 **없는** 기록을 지우면 위젯이 갱신되는데, 이미지가 **있는** 기록을 지우면 갱신이 안 됐다.
+
+**첫 번째 가설 (틀림)**: Storage 이미지 삭제를 `await`로 기다린 뒤 결과를 반환하고 있었다. 그래서 위젯 갱신이 늦어진다고 봤다. 이미지가 없으면 그 단계를 건너뛰니 증상과 맞아떨어졌다.
+→ 이 가설로 만든 **`ImageCleaner`(뒷정리를 백그라운드로 분리)는 그 자체로 옳은 수정**이었다. Storage 삭제는 "되면 좋은 뒷정리"지 지켜야 할 불변식이 아닌데 사용자를 기다리게 하고 있었다. 다만 **위젯 문제의 원인은 아니었다.** 고쳐진 것처럼 보인 건 테스트하면서 앱을 재설치했기 때문이었다.
+
+**두 번째 가설 (또 틀림)**: 그룹 나가기도 안 됐고, 거기서도 조건부로 이미지 삭제가 실행됐다. 같은 가설을 다시 세웠지만 그 코드는 이미 `ImageCleaner`로 고쳐져 있었다.
+
+**방향 전환**: "기록 작성은 되는데 삭제는 안 된다"는 보고를 받고서야, 특정 경로를 의심하는 걸 멈추고 **갱신 메커니즘 자체**를 봤다. 로그를 심자 두 가지가 드러났다.
+
+- 갱신이 **15ms**에 끝난다 → Firestore 쿼리를 2~4번 날려야 하는데 네트워크 왕복이 없다는 뜻
+- 데이터 조회 로그가 **첫 갱신 때만** 찍힌다
+
+**진짜 원인**:
+
+```kotlin
+override suspend fun provideGlance(context: Context, id: GlanceId) {
+    val state = WidgetData.loadToday(context)   // ① 세션 시작 시 1회
+    provideContent {
+        GlanceTheme { Body(state) }             // ② 갱신 요청마다 실행
+    }
+}
+```
+
+`updateAll()`은 **②만 다시 실행**한다. ①은 돌지 않는다. 데이터를 컴포지션 **밖**에서 읽는 바람에 람다가 그 값을 캡처했고, 몇 번을 재구성해도 같은 값으로 다시 그렸다.
+
+가끔 되던 이유는 **Glance 세션이 영구적이지 않기** 때문이다. 세션이 닫혀 있으면 `provideGlance`부터 다시 돌아 최신 데이터를 읽는다. 즉 실제 규칙은 "이미지 유무"도 "작성/삭제"도 아니라 **"한동안 안 건드렸으면 되고, 방금 갱신했으면 안 된다"**였다.
+
+**해결**: 데이터를 위젯 **상태(state)**에 넣는 Glance 정석 구조로 변경. `WidgetUpdater`가 조회해서 상태를 쓰고, 위젯은 상태만 그린다.
+
+**교훈**: 두 번 모두 **증상의 차이(이미지 유무)를 원인으로 착각**했다. 실제 변수는 **순서**였는데, 마침 이미지 유무와 겹쳐서 가설이 그럴듯해 보였다. 가설이 반복해서 빗나가면 조건을 더 좁힐 게 아니라 전제를 의심해야 한다.
+
+### 1️⃣5️⃣ 앱 안에 알림 on/off를 만들지 않은 이유 (오버스펙 회피)
+
+원래 계획은 "마이페이지 토글 + DataStore + Firestore 플래그"였는데 통째로 뺐다.
+
+알림 채널이 하나(`workout_reminder`)뿐인데, **Android 8부터 OS 설정에 채널별 스위치가 자동으로 생긴다.** 만들려던 스위치를 OS가 이미 더 잘 그려주고 있었다.
+
+복사판을 만들면 DataStore 키, Firestore 필드, OS 상태 동기화, `ON_RESUME` 갱신, Cloud Functions 분기가 따라붙는데 **전부 "두 스위치를 안 어긋나게 유지하는" 비용**이다. 스위치가 하나면 그 비용이 0이고, 어긋날 상태 자체가 존재하지 않는다.
+
+다만 알림 권한을 두 번 거부해 영구 차단된 사용자에게는 복구 경로가 필요해서, **저장하지 않는 상태 표시 한 줄**만 남겼다. `areNotificationsEnabled()`로 읽기만 하고 `ON_RESUME`마다 다시 읽어, 설정에서 바꾸고 돌아왔을 때 화면이 거짓말하지 않게 했다.
+
+> 카카오톡·인스타그램이 앱 내 알림 설정을 두는 건 알림 종류가 여러 개라 "메시지는 받고 광고는 안 받기"를 지원해야 하기 때문이다. 알림이 1종류면 세분화할 게 없다.
+
+### 1️⃣6️⃣ 스케줄 발송의 함정 세 가지 (Cloud Functions)
+
+**① 서버는 UTC로 돈다** — `createdAt`을 `System.currentTimeMillis()`(Long)로 저장하는데, Cloud Functions는 UTC로 실행된다. "오늘"을 서버 로컬 시간으로 계산하면 날짜가 하루 어긋나므로 KST 오프셋을 적용해 자정 경계를 직접 계산했다.
+
+**② 재시도를 끈다** — `retryCount: 0`. 부분 실패 후 재시도하면 이미 받은 사람에게 알림이 또 간다. **리마인더를 한 번 놓치는 것보다 중복 발송이 더 나쁘다.**
+
+**③ 죽은 토큰은 여기서만 정리된다** — 앱을 삭제하면 로그아웃을 거치지 않아 토큰 삭제 로직이 호출되지 않는다. 발송 실패 코드(`registration-token-not-registered`)로 잡는 것이 사실상 유일한 정리 경로다.
+
+쿼리는 `groups` · `records` · `users` **총 3번**이다. 그룹 수만큼 쿼리를 돌리면 읽기가 폭증하므로 전체를 한 번에 받아 메모리에서 조합했다.
+
+### 1️⃣7️⃣ Material 3 seed 컬러의 함정 (디자인)
+
+`lightColorScheme(primary = Orange)`처럼 **`primary`만 지정하면 나머지 슬롯이 그 색에서 파생**된다. 그 결과 배경이 베이지로 물들고, 다크 모드에서는 주황이 분홍 쪽으로 틀어졌다.
+
+해결은 **파생에 의존하지 않고 라이트/다크 색 스킴을 직접 정의**하는 것이었다. 브랜드 색이 하나로 정해져 있다면 seed 파생은 도움이 아니라 간섭이다.
+
+타이포도 같은 맥락에서 **M3의 15개 슬롯을 전부 채웠다.** 비워 둔 슬롯은 앱 폰트가 아니라 **시스템 폰트로 폴백**되기 때문에, 한 화면 안에서 글꼴이 섞인다.
+
+**같은 함정을 색 대비에서도 한 번 더 밟았다.** `outlineVariant`로 그린 요소를 `surfaceContainer` 계열 배경 위에 올렸더니 명도 차가 거의 없어 보이지 않았다. `outline*` 계열은 흰 배경 위의 테두리용이지, surface 컨테이너 위에 겹쳐 쓰라고 만든 역할 색이 아니다.
+
+### 1️⃣8️⃣ 입력 칸을 두 종류로 나눈 이유 (일관성 vs 관례)
+
+앱 전체에서 같은 입력 컴포넌트를 쓰는 게 원칙이지만, **인증 화면만 다른 컴포넌트를 쓰도록 의도적으로 분리**했다.
+
+- `ui/screen/auth/components/AuthTextField` — 라벨이 떠오르는 외곽선 입력. 로그인/회원가입의 보편적 관례
+- `ui/component/FormField` — 라벨이 위에 고정된 채움형 입력. 앱 내부 폼
+
+인스타그램·X도 로그인 폼과 콘텐츠 작성 폼을 다르게 둔다. 사용자가 로그인 화면에 기대하는 모양이 따로 있기 때문이다. **일관성은 목적이 아니라 수단**이고, 관례가 더 강한 영역에서는 관례를 따르는 편이 낫다.
+
+다만 "실수로 두 개가 된 것"과 구분되어야 하므로, **어느 쪽을 언제 쓰는지를 컴포넌트 KDoc에 규칙으로 명시**했다.
+
 ---
 
 ## 🔒 보안 / 데이터 정책
 
-- **Firestore 보안 규칙** — 읽기는 인증 기준, 쓰기는 본인만 (조작 방지). 인원 제한 등 불변식은 트랜잭션으로 방어
-- **Storage 보안 규칙** — 업로드는 `image/*`로 제한, 삭제는 별도 규칙으로 분리
+- **Firestore 보안 규칙** — 읽기는 인증 기준, 쓰기는 본인만. `groups`의 수정은 `members` 필드만 · 본인 추가/제거만 · 정원 이내로 제한하고, 삭제는 마지막 멤버가 본인일 때만 허용
+- **Storage 보안 규칙** — 업로드는 `image/*` · 5MB 이하로 제한, 삭제는 별도 규칙으로 분리
+- **보안 규칙을 레포에서 버전 관리** — `firestore.rules` · `storage.rules` · `firestore.indexes.json`을 `firebase.json`에 연결해 콘솔이 아닌 Git에서 변경 이력을 남김
+- **API 키 제한** — `google-services.json`이 공개 레포에 있으므로, 키를 **패키지명 + SHA-1 인증서 지문**으로 제한해 다른 앱에서 사용 불가하게 설정
+- **Firebase App Check** — Play Integrity 기반. 현재는 토큰 전송만 하는 모니터링 단계 (검증 비율 확인 후 적용 예정)
 - **다층 방어** — 시스템 포토피커(ImageOnly) → 선택 직후 MIME 검증 → 압축 단계 디코드 실패 → **Storage 보안 규칙**. 앞 세 단계는 UX 보조이며 실제 방어선은 보안 규칙
 - **계정 삭제** — 앱 내 삭제(재인증 + 연관 데이터 정리) + 웹 안내 페이지(앱 미설치자용) 이중 경로
 - **개인정보처리방침** — 웹 호스팅 후 앱/스토어에서 링크 제공
 - **비용 방어** — 클라이언트 압축으로 업로드 용량 축소 + GCP 예산 알림 설정 (Blaze 종량제 대비)
 
+### 알려진 제약
+
+- `records`의 **읽기 권한이 로그인 기준**이라, 로그인한 사용자는 다른 그룹의 기록도 조회할 수 있다. 멤버십 검사를 하려면 규칙 안에서 `get()`으로 그룹 문서를 읽어야 하는데, **인증샷 한 장당 읽기 1건이 추가로 과금**된다. 현 단계에서는 비용 대비 실익이 낮다고 판단해 보류했다.
+
 ---
 
 ## 🚧 Roadmap
 
-### 출시 완료 (v1.0.2)
+### v1.0.2 — 프로덕션 출시 (2026.08)
 - [x] 그룹 인원 제한 (4명) · 기록 수정 · 기록 삭제
 - [x] applicationId 변경 (`com.example` → `com.jinsupark.helpumta`) + Firebase 재등록
 - [x] Firestore / Storage 보안 규칙
@@ -318,18 +447,34 @@ allow delete: if isSignedIn();
 - [x] 이미지 압축 + EXIF 회전 보정
 - [x] 온보딩 안내 / 앱 버전 표시
 - [x] 텍스트 오버플로우 / 입력 상한 처리
-- [x] 디자인 정리 (다크모드 · 스플래시 · 카드 · 추출 화면)
 - [x] App Links (초대 링크 외부 공유)
 - [x] **Play Console 비공개 테스트 → 프로덕션 출시**
 
+### v1.0.3 (2026.11)
+- [x] 홈 화면 배치 설정 (2열 그리드 / 1열 목록, DataStore)
+- [x] 사진 추출 시 이미지 로딩 완료 전 캡처되던 문제 수정
+- [x] Firestore 규칙 보안 구멍 수정 (`groups` 수정/삭제가 로그인만으로 열려 있던 문제)
+- [x] Storage 업로드 크기 제한 (5MB)
+- [x] Firebase App Check SDK 적용 (모니터링 단계)
+
+### v1.0.4 (2026.11)
+- [x] **그룹 운동 통계** — 주간 요일별 차트, 월간 집계, 그룹원 비교
+- [x] **리마인더 알림** — Cloud Functions + Cloud Scheduler + FCM, 사용자 단위 집계
+- [x] **홈 화면 위젯 3종** (Jetpack Glance)
+- [x] **UI 전면 개편** — Material 3 색 스킴 · 타이포그래피 직접 정의, 위젯까지 동일 테마
+- [x] API 키 Android 앱 제한 (패키지명 + SHA-1)
+- [x] 보안 규칙 · 인덱스를 레포로 편입
+
 ### 진행 예정
-- [ ] Firebase App Check (봇/스크립트 차단)
-- [ ] Storage 업로드 크기 제한 (구버전 보급률 확인 후)
-- [ ] API 키 Android 앱 제한
+- [ ] R8 코드 축소 · 난독화 적용 + 매핑 파일 업로드
+- [ ] Firebase App Check enforce 전환
+- [ ] `records` 읽기 권한에 그룹 멤버십 검사 (비용 측정 후)
+- [ ] Storage 경로에 uid를 포함해 규칙에서 소유권 검증
 
 ### 리팩토링 (인지된 기술 부채)
 - [ ] 날짜 유틸 통합 — `isSameDay` / `startOfDay` 등이 Screen · ViewModel에 중복
 - [ ] "하루 1회 작성", "당일만 수정" 날짜 규칙을 Domain `Policy`로 승격
 - [ ] 토스트 발생 경로 일원화 — 일부는 Screen 직접 호출, 일부는 `SideEffect` 경유
 - [ ] `ImageCompressor`의 실패 표현을 Data 레이어의 `Result<T>` 컨벤션에 맞추기
+- [ ] `WidgetData`가 `GetGroupsWithTodayUseCase`를 사용하도록 정리 (동일 로직 중복)
 - [ ] 멀티모듈 + 테스트 코드 (학습 단계)
