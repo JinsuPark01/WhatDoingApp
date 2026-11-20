@@ -181,8 +181,9 @@ private fun MemberRankRow(
 
             RatioBar(
                 ratio = ratio,
+                // outlineVariant는 트랙(surfaceContainerHigh)과 명도가 거의 같아 채움이 사라진다.
                 color = if (member.isMe) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.outlineVariant
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
             )
         }
     }
