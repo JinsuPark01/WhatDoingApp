@@ -1,0 +1,24 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isImage() {
+      return request.resource.contentType.matches('image/.*')
+             && request.resource.size < 5 * 1024 * 1024;
+    }
+    // 그룹 이미지
+    match /groups/{fileName} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isImage();
+      allow delete: if isSignedIn();
+    }
+    // 기록 인증샷 (records/{groupId}/{fileName})
+    match /records/{groupId}/{fileName} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isImage();
+      allow delete: if isSignedIn();
+    }
+  }
+}
