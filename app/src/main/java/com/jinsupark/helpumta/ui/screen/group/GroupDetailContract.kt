@@ -39,6 +39,7 @@ object GroupDetailContract {
         data class SelectDate(val startMillis: Long) : Intent  // 캘린더에서 선택 (로컬 00:00)
         data class MoveDay(val offset: Int) : Intent           // 화살표 상대 이동
         data object RefreshToToday : Intent
+        data object RefreshGroup : Intent                      // 그룹 정보 수정 후 재조회
         data class DeleteRecord(val recordId: String) : Intent
         data object AlreadyWroteToday : Intent
         data class SelectTab(val tab: Tab) : Intent

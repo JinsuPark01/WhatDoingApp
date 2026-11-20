@@ -25,22 +25,31 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.jinsupark.helpumta.domain.model.GroupPolicy
 import com.jinsupark.helpumta.ui.component.FormField
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 
 @Composable
 fun GroupCreateScreen(
+    groupId: String?,
     viewModel: GroupCreateViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToGroup: (String) -> Unit
+    onNavigateToGroup: (String) -> Unit,
+    onGroupUpdated: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    LaunchedEffect(groupId) {
+        viewModel.handleIntent(GroupCreateContract.Intent.Initialize(groupId))
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.sideEffect.collect { effect ->
             when (effect) {
                 is GroupCreateContract.SideEffect.NavigateToGroup -> onNavigateToGroup(effect.groupId)
+                GroupCreateContract.SideEffect.GroupUpdated -> onGroupUpdated()
+                GroupCreateContract.SideEffect.NavigateBack -> onNavigateBack()
                 is GroupCreateContract.SideEffect.ShowToast -> {
                     Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
                 }
@@ -82,6 +91,9 @@ private fun GroupCreateContent(
     onNavigateBack: () -> Unit,
     onPickImage: () -> Unit
 ) {
+    val title = if (uiState.isEditMode) "그룹 정보 수정" else "그룹 만들기"
+    val submitLabel = if (uiState.isEditMode) "저장" else "그룹 만들기"
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -91,7 +103,7 @@ private fun GroupCreateContent(
                 ),
                 title = {
                     Text(
-                        text = "그룹 만들기",
+                        text = title,
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
@@ -106,6 +118,18 @@ private fun GroupCreateContent(
             )
         }
     ) { paddingValues ->
+        if (uiState.isInitializing) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -147,35 +171,69 @@ private fun GroupCreateContent(
 
                 Spacer(Modifier.height(10.dp))
 
-                Text(
-                    text = if (uiState.imageUri != null) "이미지 변경" else "그룹 대표 이미지 (선택)",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (uiState.imageUri != null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "이미지 변경",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.clickable { onPickImage() }
+                        )
+                        Text(
+                            text = "제거",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.clickable {
+                                onIntent(GroupCreateContract.Intent.UpdateImage(null))
+                            }
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "그룹 대표 이미지 (선택)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FormField(
+                    label = "그룹 이름",
+                    value = uiState.name,
+                    onValueChange = { onIntent(GroupCreateContract.Intent.UpdateName(it)) },
+                    placeholder = "헬스팟, 아침 러닝…"
+                )
+                LengthCounter(
+                    current = uiState.name.length,
+                    max = GroupPolicy.MAX_NAME_LENGTH
                 )
             }
 
-            FormField(
-                label = "그룹 이름",
-                value = uiState.name,
-                onValueChange = { onIntent(GroupCreateContract.Intent.UpdateName(it)) },
-                placeholder = "헬스팟, 아침 러닝…"
-            )
-
-            FormField(
-                label = "그룹 설명 (선택)",
-                value = uiState.description,
-                onValueChange = { onIntent(GroupCreateContract.Intent.UpdateDescription(it)) },
-                placeholder = "어떤 모임인지 적어주세요",
-                singleLine = false,
-                minLines = 3,
-                maxLines = 5
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FormField(
+                    label = "그룹 설명 (선택)",
+                    value = uiState.description,
+                    onValueChange = { onIntent(GroupCreateContract.Intent.UpdateDescription(it)) },
+                    placeholder = "어떤 모임인지 적어주세요",
+                    singleLine = false,
+                    minLines = 3,
+                    maxLines = 5
+                )
+                LengthCounter(
+                    current = uiState.description.length,
+                    max = GroupPolicy.MAX_DESCRIPTION_LENGTH
+                )
+            }
 
             Spacer(Modifier.weight(1f))
 
             Button(
-                onClick = { onIntent(GroupCreateContract.Intent.SubmitCreate) },
-                enabled = uiState.isCreateEnabled && !uiState.isLoading,
+                onClick = { onIntent(GroupCreateContract.Intent.Submit) },
+                enabled = uiState.isSubmitEnabled && !uiState.isLoading,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -189,7 +247,7 @@ private fun GroupCreateContent(
                     )
                 } else {
                     Text(
-                        text = "그룹 만들기",
+                        text = submitLabel,
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -198,12 +256,42 @@ private fun GroupCreateContent(
     }
 }
 
+// "3/20" — 입력 칸 오른쪽 아래. 강조할 정보가 아니라 onSurfaceVariant로 조용히
+@Composable
+private fun LengthCounter(current: Int, max: Int) {
+    Text(
+        text = "$current/$max",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentWidth(Alignment.End)
+    )
+}
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun GroupCreateContentPreview() {
     HelpumtaTheme {
         GroupCreateContent(
             uiState = GroupCreateContract.UiState(),
+            onIntent = {},
+            onNavigateBack = {},
+            onPickImage = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun GroupEditContentPreview() {
+    HelpumtaTheme {
+        GroupCreateContent(
+            uiState = GroupCreateContract.UiState(
+                groupId = "1",
+                name = "헬스팟",
+                description = "평일 저녁 운동 모임"
+            ),
             onIntent = {},
             onNavigateBack = {},
             onPickImage = {}

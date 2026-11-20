@@ -15,7 +15,12 @@ sealed class Screen(val route: String) {
     object MyPage : Screen("mypage")
 
     // 그룹
-    object GroupCreate : Screen("group_create")
+    // groupId가 있으면 수정 모드 (WriteRecord의 recordId와 같은 방식)
+    object GroupCreate : Screen("group_create?groupId={groupId}") {
+        fun createRoute(groupId: String? = null) =
+            if (groupId != null) "group_create?groupId=$groupId"
+            else "group_create"
+    }
     object GroupJoin : Screen("group_join/{groupId}") {
         fun createRoute(groupId: String) = "group_join/$groupId"
     }

@@ -48,10 +48,13 @@ fun GroupDetailScreen(
     groupId: String,
     recordCreated: Boolean,
     onRecordCreatedHandled: () -> Unit,
+    groupUpdated: Boolean,
+    onGroupUpdatedHandled: () -> Unit,
     viewModel: GroupDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToRecord: (String) -> Unit,
     onNavigateToEditRecord: (String, String) -> Unit,
+    onNavigateToEditGroup: (String) -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToExtract: (String, Long) -> Unit
 ) {
@@ -67,6 +70,13 @@ fun GroupDetailScreen(
         if (recordCreated) {
             viewModel.handleIntent(GroupDetailContract.Intent.RefreshToToday)
             onRecordCreatedHandled()
+        }
+    }
+
+    LaunchedEffect(groupUpdated) {
+        if (groupUpdated) {
+            viewModel.handleIntent(GroupDetailContract.Intent.RefreshGroup)
+            onGroupUpdatedHandled()
         }
     }
 
@@ -92,6 +102,7 @@ fun GroupDetailScreen(
             Toast.makeText(context, "초대 링크를 복사했어요", Toast.LENGTH_SHORT).show()
         },
         onExtract = { onNavigateToExtract(groupId, uiState.selectedDate) },
+        onEditGroup = { onNavigateToEditGroup(groupId) },
         onEditRecord = { recordId -> onNavigateToEditRecord(groupId, recordId) }
     )
 }
@@ -103,6 +114,7 @@ private fun GroupDetailContent(
     onNavigateBack: () -> Unit,
     onCopyInviteCode: () -> Unit,
     onExtract: () -> Unit,
+    onEditGroup: () -> Unit,
     onEditRecord: (String) -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -169,6 +181,16 @@ private fun GroupDetailContent(
                                 },
                                 leadingIcon = {
                                     Icon(Icons.Default.Share, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("그룹 정보 수정") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onEditGroup()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Edit, contentDescription = null)
                                 }
                             )
                             DropdownMenuItem(
@@ -576,6 +598,7 @@ private fun GroupDetailContentPreview() {
             onNavigateBack = {},
             onCopyInviteCode = {},
             onExtract = {},
+            onEditGroup = {},
             onEditRecord = {}
         )
     }

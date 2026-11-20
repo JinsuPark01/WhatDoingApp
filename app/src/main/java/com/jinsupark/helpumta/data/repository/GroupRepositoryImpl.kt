@@ -42,12 +42,7 @@ class GroupRepositoryImpl @Inject constructor(
         imageUri: String?
     ): Result<String> {
         return try {
-            val imageUrl = imageUri?.let { uriString ->
-                val bytes = imageCompressor.compress(Uri.parse(uriString), maxSize = 1080)
-                val ref = storage.reference.child("groups/${UUID.randomUUID()}.jpg")
-                ref.putBytes(bytes, storageMetadata { contentType = "image/jpeg" }).await()
-                ref.downloadUrl.await().toString()
-            } ?: ""
+            val imageUrl = imageUri?.let { uploadGroupImage(it) } ?: ""
 
             val groupData = hashMapOf(
                 "name" to name,
@@ -63,6 +58,71 @@ class GroupRepositoryImpl @Inject constructor(
 
             Result.success(docRef.id)
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateGroup(
+        groupId: String,
+        userId: String,
+        name: String,
+        description: String,
+        imageUri: String?
+    ): Result<Unit> {
+        // 새 로컬 이미지일 때만 업로드. 트랜잭션은 재시도될 수 있으므로 업로드는 밖에서 한 번만
+        val uploadedUrl: String? = try {
+            if (imageUri != null && !imageUri.startsWith("http")) uploadGroupImage(imageUri) else null
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+
+        return try {
+            val docRef = firestore.collection("groups").document(groupId)
+
+            // 멤버 누구나 수정 가능 → 화면을 연 뒤 다른 멤버가 이미지를 바꿨을 수 있다.
+            // 화면에서 읽어둔 URL이 아니라 트랜잭션 안에서 읽은 '현재' URL 기준으로 교체/정리한다.
+            val replacedUrl = firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(docRef)
+                if (!snapshot.exists()) {
+                    throw Exception("그룹을 찾을 수 없습니다")
+                }
+
+                val members = (snapshot.get("members") as? List<*>)
+                    ?.filterIsInstance<String>()
+                    ?: emptyList()
+                if (userId !in members) {
+                    throw Exception("그룹 멤버만 수정할 수 있습니다")
+                }
+
+                val currentUrl = snapshot.getString("imageUrl").orEmpty()
+                val updates = mutableMapOf<String, Any>(
+                    "name" to name,
+                    "description" to description
+                )
+
+                val replaced: String? = when {
+                    imageUri == null -> {          // 삭제
+                        updates["imageUrl"] = ""
+                        currentUrl
+                    }
+                    uploadedUrl != null -> {       // 교체
+                        updates["imageUrl"] = uploadedUrl
+                        currentUrl
+                    }
+                    else -> null                   // 유지 — imageUrl 필드를 건드리지 않는다
+                }
+
+                transaction.update(docRef, updates)
+                replaced?.takeIf { it.isNotBlank() }
+            }.await()
+
+            // Firestore 반영이 끝난 뒤 기존 이미지 정리 (백그라운드)
+            imageCleaner.delete(replacedUrl.orEmpty())
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            // 문서 반영 실패 → 방금 올린 이미지는 아무도 참조하지 않으므로 정리
+            uploadedUrl?.let { imageCleaner.delete(it) }
             Result.failure(e)
         }
     }
@@ -172,5 +232,12 @@ class GroupRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private suspend fun uploadGroupImage(uriString: String): String {
+        val bytes = imageCompressor.compress(Uri.parse(uriString), maxSize = 1080)
+        val ref = storage.reference.child("groups/${UUID.randomUUID()}.jpg")
+        ref.putBytes(bytes, storageMetadata { contentType = "image/jpeg" }).await()
+        return ref.downloadUrl.await().toString()
     }
 }

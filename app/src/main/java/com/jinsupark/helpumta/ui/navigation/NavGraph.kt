@@ -28,7 +28,7 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination  // 변경
+        startDestination = startDestination
     ) {
         composable(Screen.Login.route) {
             LoginScreen(
@@ -59,7 +59,7 @@ fun NavGraph(
                     navController.navigate(Screen.GroupDetail.createRoute(groupId))
                 },
                 onNavigateToCreateGroup = {
-                    navController.navigate(Screen.GroupCreate.route)
+                    navController.navigate(Screen.GroupCreate.createRoute())
                 },
                 onNavigateToMyPage = {
                     navController.navigate(Screen.MyPage.route)
@@ -70,7 +70,7 @@ fun NavGraph(
             route = Screen.WriteRecord.route,
             arguments = listOf(
                 navArgument("groupId") { type = NavType.StringType },
-                navArgument("recordId") {                          // 추가
+                navArgument("recordId") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -78,10 +78,10 @@ fun NavGraph(
             )
         ) { backStackEntry ->
             val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
-            val recordId = backStackEntry.arguments?.getString("recordId")   // 추가
+            val recordId = backStackEntry.arguments?.getString("recordId")
             RecordScreen(
                 groupId = groupId,
-                recordId = recordId,                               // 추가
+                recordId = recordId,
                 onNavigateBack = { navController.popBackStack() },
                 onRecordCreated = {
                     navController.previousBackStackEntry
@@ -104,13 +104,29 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(Screen.GroupCreate.route) {
+        composable(
+            route = Screen.GroupCreate.route,
+            arguments = listOf(
+                navArgument("groupId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId")
             GroupCreateScreen(
+                groupId = groupId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToGroup = { groupId ->
-                    navController.navigate(Screen.GroupDetail.createRoute(groupId)) {
+                onNavigateToGroup = { createdId ->
+                    navController.navigate(Screen.GroupDetail.createRoute(createdId)) {
                         popUpTo(Screen.Home.route)
                     }
+                },
+                onGroupUpdated = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle?.set("groupUpdated", true)
+                    navController.popBackStack()
                 }
             )
         }
@@ -124,7 +140,7 @@ fun NavGraph(
                     uriPattern = "helpumta://group/{groupId}"
                 },
                 navDeepLink {
-                    uriPattern = "https://whatdoing-c4457.web.app/group/{groupId}"  // App Links 추가
+                    uriPattern = "https://whatdoing-c4457.web.app/group/{groupId}"
                 }
             )
         ) { backStackEntry ->
@@ -149,18 +165,29 @@ fun NavGraph(
                 .getStateFlow("recordCreated", false)
                 .collectAsStateWithLifecycle()
 
+            val groupUpdated by backStackEntry.savedStateHandle
+                .getStateFlow("groupUpdated", false)
+                .collectAsStateWithLifecycle()
+
             GroupDetailScreen(
                 groupId = groupId,
                 recordCreated = recordCreated,
                 onRecordCreatedHandled = {
                     backStackEntry.savedStateHandle["recordCreated"] = false
                 },
+                groupUpdated = groupUpdated,
+                onGroupUpdatedHandled = {
+                    backStackEntry.savedStateHandle["groupUpdated"] = false
+                },
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToRecord = { gId ->
                     navController.navigate(Screen.WriteRecord.createRoute(gId))
                 },
-                onNavigateToEditRecord = { gId, recordId ->                       // 추가
+                onNavigateToEditRecord = { gId, recordId ->
                     navController.navigate(Screen.WriteRecord.createRoute(gId, recordId))
+                },
+                onNavigateToEditGroup = { gId ->
+                    navController.navigate(Screen.GroupCreate.createRoute(gId))
                 },
                 onNavigateToHome = {
                     navController.navigate(Screen.Home.route) {

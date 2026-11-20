@@ -53,6 +53,7 @@ class GroupDetailViewModel @Inject constructor(
                 changeDate(start)
             }
             GroupDetailContract.Intent.RefreshToToday -> refreshToToday()
+            GroupDetailContract.Intent.RefreshGroup -> refreshGroup()
             is GroupDetailContract.Intent.DeleteRecord -> deleteRecord(intent.recordId)
             GroupDetailContract.Intent.AlreadyWroteToday -> {
                 viewModelScope.launch {
@@ -120,6 +121,19 @@ class GroupDetailViewModel @Inject constructor(
         }
     }
 
+    // 그룹 정보만 다시 조회 — 기록/통계/캘린더 상태는 건드리지 않는다
+    private fun refreshGroup() {
+        val groupId = _uiState.value.groupId
+        if (groupId.isBlank()) return
+
+        viewModelScope.launch {
+            // 실패해도 기존 정보가 그대로 보이므로 에러를 노출하지 않는다
+            getGroupDetailUseCase(groupId).onSuccess { group ->
+                _uiState.update { it.copy(group = group) }
+            }
+        }
+    }
+
     // 날짜 변경 공통 (캘린더/화살표 둘 다 여기로)
     private fun changeDate(startMillis: Long) {
         val groupId = _uiState.value.groupId
@@ -163,7 +177,7 @@ class GroupDetailViewModel @Inject constructor(
             leaveGroupUseCase(groupId).fold(
                 onSuccess = {
                     _uiState.update { it.copy(isLeaving = false) }
-                    widgetUpdater.refresh()          // ← 추가
+                    widgetUpdater.refresh()
                     _sideEffect.emit(GroupDetailContract.SideEffect.NavigateToHome)
                 },
                 onFailure = {
@@ -175,6 +189,7 @@ class GroupDetailViewModel @Inject constructor(
             )
         }
     }
+
     private fun refreshToToday() {
         val groupId = _uiState.value.groupId
         if (groupId.isBlank()) return
