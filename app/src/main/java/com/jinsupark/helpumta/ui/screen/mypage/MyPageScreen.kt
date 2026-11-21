@@ -4,7 +4,11 @@ package com.jinsupark.helpumta.ui.screen.mypage
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,10 +37,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.jinsupark.helpumta.BuildConfig
 import com.jinsupark.helpumta.data.auth.GoogleAuthClient
 import com.jinsupark.helpumta.domain.model.AuthProvider
 import com.jinsupark.helpumta.domain.model.HomeLayout
+import com.jinsupark.helpumta.domain.model.UserPolicy
+import com.jinsupark.helpumta.ui.component.FormField
 import com.jinsupark.helpumta.ui.screen.auth.components.AuthTextField
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 import com.jinsupark.helpumta.ui.util.openAppNotificationSettings
@@ -59,6 +68,9 @@ fun MyPageScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
+
+    var showNicknameDialog by remember { mutableStateOf(false) }
+    var nicknameInput by remember { mutableStateOf("") }
 
     // 알림 on/off는 앱이 따로 저장하지 않고 OS 설정을 단일 진실 소스로 쓴다.
     // 앱 내 토글을 두면 OS 상태와 어긋나 "켜져 있는데 안 와요"가 생긴다.
@@ -89,9 +101,34 @@ fun MyPageScreen(
         }
     }
 
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        // 포토피커가 아닌 폴백 경로(구형 기기)에서 비이미지가 넘어오는 케이스 방어
+        val mimeType = context.contentResolver.getType(uri)
+        if (mimeType?.startsWith("image/") != true) {
+            Toast.makeText(context, "이미지 파일만 선택할 수 있어요", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+
+        viewModel.handleIntent(MyPageContract.Intent.UpdatePhoto(uri.toString()))
+    }
+
     MyPageContent(
         uiState = uiState,
         notificationsEnabled = notificationsEnabled,
+        onPickPhoto = {
+            photoPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            )
+        },
+        onRemovePhoto = { viewModel.handleIntent(MyPageContract.Intent.UpdatePhoto(null)) },
+        onEditNickname = {
+            nicknameInput = uiState.nickname
+            showNicknameDialog = true
+        },
         onLogoutClick = { showLogoutDialog = true },
         onDeleteClick = { showDeleteDialog = true },
         onNotificationClick = { context.openAppNotificationSettings() },
@@ -103,6 +140,53 @@ fun MyPageScreen(
             viewModel.handleIntent(MyPageContract.Intent.ChangeHomeLayout(layout))
         }
     )
+
+    if (showNicknameDialog) {
+        val trimmed = nicknameInput.trim()
+        AlertDialog(
+            onDismissRequest = { showNicknameDialog = false },
+            title = { Text("닉네임 변경") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FormField(
+                        label = "닉네임",
+                        value = nicknameInput,
+                        onValueChange = { new ->
+                            // 제한 이내면 허용, 넘으면 무시 (잘라내면 한글 조합이 깨짐).
+                            // 제한이 생기기 전 이름은 이미 길 수 있으므로 줄어드는 변경은 항상 허용
+                            if (new.length <= UserPolicy.MAX_NICKNAME_LENGTH ||
+                                new.length < nicknameInput.length
+                            ) {
+                                nicknameInput = new
+                            }
+                        },
+                        placeholder = "그룹원에게 보일 이름"
+                    )
+                    Text(
+                        text = "${nicknameInput.length}/${UserPolicy.MAX_NICKNAME_LENGTH}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentWidth(Alignment.End)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showNicknameDialog = false
+                        viewModel.handleIntent(MyPageContract.Intent.UpdateNickname(nicknameInput))
+                    },
+                    // 비어 있거나 그대로면 저장할 게 없다
+                    enabled = trimmed.isNotEmpty() && trimmed != uiState.nickname
+                ) { Text("저장") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNicknameDialog = false }) { Text("취소") }
+            }
+        )
+    }
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -205,6 +289,9 @@ fun MyPageScreen(
 private fun MyPageContent(
     uiState: MyPageContract.UiState,
     notificationsEnabled: Boolean,
+    onPickPhoto: () -> Unit,
+    onRemovePhoto: () -> Unit,
+    onEditNickname: () -> Unit,
     onLogoutClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onNotificationClick: () -> Unit,
@@ -240,7 +327,16 @@ private fun MyPageContent(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
-            ProfileHeader(nickname = uiState.nickname, email = uiState.email)
+            ProfileHeader(
+                nickname = uiState.nickname,
+                email = uiState.email,
+                photoUrl = uiState.photoUrl,
+                isUpdatingPhoto = uiState.isUpdatingPhoto,
+                isUpdatingNickname = uiState.isUpdatingNickname,
+                onPickPhoto = onPickPhoto,
+                onRemovePhoto = onRemovePhoto,
+                onEditNickname = onEditNickname
+            )
 
             SectionLabel("설정")
 
@@ -330,36 +426,138 @@ private fun MyPageContent(
 }
 
 @Composable
-private fun ProfileHeader(nickname: String, email: String) {
+private fun ProfileHeader(
+    nickname: String,
+    email: String,
+    photoUrl: String,
+    isUpdatingPhoto: Boolean,
+    isUpdatingNickname: Boolean,
+    onPickPhoto: () -> Unit,
+    onRemovePhoto: () -> Unit,
+    onEditNickname: () -> Unit
+) {
+    var photoMenuExpanded by remember { mutableStateOf(false) }
+    val hasPhoto = photoUrl.isNotBlank()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 28.dp, bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
+        // ── 아바타 + 연필 배지
+        Box {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .clickable(enabled = !isUpdatingPhoto) {
+                        // 사진이 없으면 고를 것만 남으므로 메뉴 없이 바로 피커
+                        if (hasPhoto) photoMenuExpanded = true else onPickPhoto()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (hasPhoto) {
+                    AsyncImage(
+                        model = photoUrl,
+                        contentDescription = "프로필 사진",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = nickname.firstOrNull()?.toString() ?: "?",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (isUpdatingPhoto) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
+            }
+
+            // 배지는 터치를 소비하지 않는다 → 눌러도 아래 아바타의 clickable이 받는다.
+            // 바깥 링을 배경색으로 둘러 사진/이니셜 위에서도 경계가 보이게
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(2.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = photoMenuExpanded,
+                onDismissRequest = { photoMenuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("사진 변경") },
+                    onClick = {
+                        photoMenuExpanded = false
+                        onPickPhoto()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("사진 제거") },
+                    onClick = {
+                        photoMenuExpanded = false
+                        onRemovePhoto()
+                    }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // ── 닉네임 + 연필
+        // 왼쪽에 아이콘 폭만큼 빈 공간을 둬서 이름이 화면 가운데에 오게 한다
+        Row(
             modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center
+                .clip(MaterialTheme.shapes.small)
+                .clickable(enabled = !isUpdatingNickname, onClick = onEditNickname)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Spacer(Modifier.width(20.dp))
             Text(
-                text = nickname.firstOrNull()?.toString() ?: "?",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = nickname,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = "닉네임 변경",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
             )
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            text = nickname,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
 
         Text(
             text = email,
@@ -437,6 +635,9 @@ private fun MyPageContentPreview() {
                 email = "jinsu@jinsupark.com"
             ),
             notificationsEnabled = true,
+            onPickPhoto = {},
+            onRemovePhoto = {},
+            onEditNickname = {},
             onLogoutClick = {},
             onDeleteClick = {},
             onNotificationClick = {},
@@ -458,6 +659,9 @@ private fun MyPageContentNotificationOffPreview() {
                 homeLayout = HomeLayout.LIST
             ),
             notificationsEnabled = false,
+            onPickPhoto = {},
+            onRemovePhoto = {},
+            onEditNickname = {},
             onLogoutClick = {},
             onDeleteClick = {},
             onNotificationClick = {},

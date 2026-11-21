@@ -6,10 +6,13 @@ import com.jinsupark.helpumta.domain.model.HomeLayout
 import com.jinsupark.helpumta.domain.usecase.DeleteAccountUseCase
 import com.jinsupark.helpumta.domain.usecase.GetAuthProviderUseCase
 import com.jinsupark.helpumta.domain.usecase.GetHomeLayoutUseCase
+import com.jinsupark.helpumta.domain.usecase.GetMyPhotoUrlUseCase
 import com.jinsupark.helpumta.domain.usecase.GetUserProfileUseCase
 import com.jinsupark.helpumta.domain.usecase.LogoutUseCase
 import com.jinsupark.helpumta.domain.usecase.ReauthenticateUseCase
 import com.jinsupark.helpumta.domain.usecase.SetHomeLayoutUseCase
+import com.jinsupark.helpumta.domain.usecase.UpdateNicknameUseCase
+import com.jinsupark.helpumta.domain.usecase.UpdateProfileImageUseCase
 import com.jinsupark.helpumta.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -23,6 +26,9 @@ import javax.inject.Inject
 @HiltViewModel
 class MyPageViewModel @Inject constructor(
     private val getUserProfileUseCase: GetUserProfileUseCase,
+    private val getMyPhotoUrlUseCase: GetMyPhotoUrlUseCase,
+    private val updateNicknameUseCase: UpdateNicknameUseCase,
+    private val updateProfileImageUseCase: UpdateProfileImageUseCase,
     private val logoutUseCase: LogoutUseCase,
     private val getAuthProviderUseCase: GetAuthProviderUseCase,
     private val reauthenticateUseCase: ReauthenticateUseCase,
@@ -61,6 +67,8 @@ class MyPageViewModel @Inject constructor(
             }
             is MyPageContract.Intent.ChangeHomeLayout ->
                 changeHomeLayout(intent.layout)
+            is MyPageContract.Intent.UpdatePhoto -> updatePhoto(intent.uri)
+            is MyPageContract.Intent.UpdateNickname -> updateNickname(intent.nickname)
         }
     }
 
@@ -93,6 +101,56 @@ class MyPageViewModel @Inject constructor(
                     authProvider = getAuthProviderUseCase()
                 )
             }
+        }
+
+        // 사진은 Firestore에 있어 비동기. 실패해도 이니셜이 보이므로 에러를 노출하지 않는다
+        viewModelScope.launch {
+            getMyPhotoUrlUseCase().onSuccess { url ->
+                _uiState.update { it.copy(photoUrl = url) }
+            }
+        }
+    }
+
+    private fun updatePhoto(uri: String?) {
+        if (_uiState.value.isUpdatingPhoto) return
+        _uiState.update { it.copy(isUpdatingPhoto = true) }
+
+        viewModelScope.launch {
+            updateProfileImageUseCase(uri).fold(
+                onSuccess = { newUrl ->
+                    _uiState.update { it.copy(isUpdatingPhoto = false, photoUrl = newUrl) }
+                },
+                onFailure = {
+                    _uiState.update { it.copy(isUpdatingPhoto = false) }
+                    _sideEffect.emit(
+                        MyPageContract.SideEffect.ShowToast("프로필 사진 변경에 실패했어요")
+                    )
+                }
+            )
+        }
+    }
+
+    private fun updateNickname(nickname: String) {
+        if (_uiState.value.isUpdatingNickname) return
+        _uiState.update { it.copy(isUpdatingNickname = true) }
+
+        viewModelScope.launch {
+            updateNicknameUseCase(nickname).fold(
+                onSuccess = {
+                    // Auth displayName이 원본 → 바뀐 값을 원본에서 다시 읽는다
+                    val updated = getUserProfileUseCase()?.nickname ?: nickname.trim()
+                    _uiState.update { it.copy(isUpdatingNickname = false, nickname = updated) }
+                    // 위젯에 이름이 표시되므로 갱신
+                    widgetUpdater.refresh()
+                    _sideEffect.emit(MyPageContract.SideEffect.ShowToast("닉네임을 변경했어요"))
+                },
+                onFailure = {
+                    _uiState.update { it.copy(isUpdatingNickname = false) }
+                    _sideEffect.emit(
+                        MyPageContract.SideEffect.ShowToast("닉네임 변경에 실패했어요. 다시 시도해주세요.")
+                    )
+                }
+            )
         }
     }
 

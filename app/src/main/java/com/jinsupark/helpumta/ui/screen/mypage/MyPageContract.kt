@@ -8,8 +8,11 @@ object MyPageContract {
     data class UiState(
         val nickname: String = "",
         val email: String = "",
+        val photoUrl: String = "",
         val authProvider: AuthProvider = AuthProvider.UNKNOWN,
         val isDeleting: Boolean = false,
+        val isUpdatingPhoto: Boolean = false,
+        val isUpdatingNickname: Boolean = false,
         val homeLayout: HomeLayout = HomeLayout.GRID
     )
 
@@ -21,6 +24,8 @@ object MyPageContract {
         data class DeleteWithGoogle(val idToken: String) : Intent           // 구글 사용자
         data object GoogleReauthCancelled : Intent
         data class ChangeHomeLayout(val layout: HomeLayout) : Intent
+        data class UpdatePhoto(val uri: String?) : Intent                   // null이면 제거
+        data class UpdateNickname(val nickname: String) : Intent
     }
 
     sealed interface SideEffect {

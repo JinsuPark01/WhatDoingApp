@@ -324,7 +324,9 @@ private fun GroupDetailContent(
                                                     canEdit = canEdit,
                                                     canDelete = isMine,
                                                     onEditClick = { onEditRecord(record.id) },
-                                                    onDeleteClick = { deleteTarget = record }
+                                                    onDeleteClick = { deleteTarget = record },
+                                                    authorPhotoUrl = uiState.memberProfiles[record.userId]
+                                                        ?.photoUrl.orEmpty()
                                                 )
                                             }
                                         }

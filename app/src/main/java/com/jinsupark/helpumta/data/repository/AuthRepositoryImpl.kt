@@ -70,6 +70,7 @@ class AuthRepositoryImpl @Inject constructor(
             Result.failure(AuthException(e.toAuthError()))
         }
     }
+
     override suspend fun googleLogin(idToken: String): Result<User> {
         return try {
             val credential = GoogleAuthProvider.getCredential(idToken, null)
@@ -93,12 +94,26 @@ class AuthRepositoryImpl @Inject constructor(
 
     override fun getCurrentUserName(): String? {
         val user = firebaseAuth.currentUser ?: return null
-        // displayName이 없으면 email의 @ 앞부분 사용
-        return user.displayName ?: user.email?.substringBefore("@")
+        // displayName은 null이 아니라 ""로 올 수도 있다 → 빈 값도 폴백 대상
+        // (닉네임 원본이라 빈 이름이 기록·users로 복사되면 안 됨)
+        return user.displayName?.takeIf { it.isNotBlank() }
+            ?: user.email?.substringBefore("@")
     }
 
     override fun getCurrentUserEmail(): String? {
         return firebaseAuth.currentUser?.email
+    }
+
+    override suspend fun updateDisplayName(name: String): Result<Unit> {
+        return try {
+            val user = firebaseAuth.currentUser
+                ?: return Result.failure(Exception("로그인 상태가 아닙니다"))
+            // 최상위 displayName은 최초 가입 때만 자동으로 채워지고 구글 재로그인으로 덮이지 않는다 (실기기 확인 2026.11.21).
+            user.updateProfile(userProfileChangeRequest { displayName = name }).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override fun logout() {

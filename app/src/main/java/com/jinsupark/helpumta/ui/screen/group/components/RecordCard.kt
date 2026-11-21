@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -53,13 +54,14 @@ fun RecordCard(
     canDelete: Boolean,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    authorPhotoUrl: String = ""
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
 
         // ── 작성자 줄
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(name = record.userName)
+            Avatar(name = record.userName, photoUrl = authorPhotoUrl)
 
             Spacer(Modifier.width(10.dp))
 
@@ -120,7 +122,7 @@ fun RecordCard(
 }
 
 @Composable
-private fun Avatar(name: String) {
+private fun Avatar(name: String, photoUrl: String) {
     // 브랜드 색을 장식에 쓰지 않는다. 주황은 FAB 하나로 충분하다.
     Box(
         modifier = Modifier
@@ -129,11 +131,20 @@ private fun Avatar(name: String) {
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = name.firstOrNull()?.toString() ?: "?",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (photoUrl.isNotBlank()) {
+            AsyncImage(
+                model = photoUrl,
+                contentDescription = "${name}의 프로필 사진",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Text(
+                text = name.firstOrNull()?.toString() ?: "?",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

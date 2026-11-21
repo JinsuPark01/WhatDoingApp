@@ -6,6 +6,7 @@ import com.jinsupark.helpumta.domain.usecase.DeleteRecordUseCase
 import com.jinsupark.helpumta.domain.usecase.GetCurrentUserIdUseCase
 import com.jinsupark.helpumta.domain.usecase.GetGroupDetailUseCase
 import com.jinsupark.helpumta.domain.usecase.GetGroupStatsUseCase
+import com.jinsupark.helpumta.domain.usecase.GetMemberProfilesUseCase
 import com.jinsupark.helpumta.domain.usecase.GetMyRecordDatesUseCase
 import com.jinsupark.helpumta.domain.usecase.GetRecordsByGroupUseCase
 import com.jinsupark.helpumta.domain.usecase.HasWroteTodayUseCase
@@ -33,6 +34,7 @@ class GroupDetailViewModel @Inject constructor(
     private val deleteRecordUseCase: DeleteRecordUseCase,
     private val getGroupStatsUseCase: GetGroupStatsUseCase,
     private val getMyRecordDatesUseCase: GetMyRecordDatesUseCase,
+    private val getMemberProfilesUseCase: GetMemberProfilesUseCase,
     private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
@@ -95,10 +97,12 @@ class GroupDetailViewModel @Inject constructor(
                     getRecordsByGroupUseCase(groupId, today, endOfDay(today))
                 }
                 val wroteDeferred = async { hasWroteTodayUseCase(groupId) }
+                val profilesDeferred = async { getMemberProfilesUseCase(groupId) }
 
                 val groupResult = groupDeferred.await()
                 val recordsResult = recordsDeferred.await()
                 val wroteResult = wroteDeferred.await()
+                val profilesResult = profilesDeferred.await()
 
                 groupResult.fold(
                     onSuccess = { group ->
@@ -107,7 +111,9 @@ class GroupDetailViewModel @Inject constructor(
                             group = group,
                             records = recordsResult.getOrDefault(emptyList()),
                             recordsErrorMessage = if (recordsResult.isFailure) "기록을 불러오지 못했습니다" else null,
-                            hasWroteToday = wroteResult.getOrDefault(false)
+                            hasWroteToday = wroteResult.getOrDefault(false),
+                            // 실패해도 이니셜 아바타로 보이면 그만이라 에러를 노출하지 않는다
+                            memberProfiles = profilesResult.getOrDefault(emptyMap())
                         )}
                     },
                     onFailure = { e ->

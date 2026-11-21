@@ -19,7 +19,7 @@ class RecordRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage,
     private val imageCompressor: ImageCompressor,
-    private val imageCleaner: ImageCleaner          // ← 추가
+    private val imageCleaner: ImageCleaner
 ) : RecordRepository {
 
     override suspend fun getRecordsByGroup(
@@ -175,6 +175,31 @@ class RecordRepositoryImpl @Inject constructor(
             // 더 이상 참조되지 않는 기존 이미지는 백그라운드에서 정리
             if (oldImageUrl.isNotBlank() && oldImageUrl != newImageUrl) {
                 imageCleaner.delete(oldImageUrl)
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateUserNameInRecords(
+        userId: String,
+        userName: String
+    ): Result<Unit> {
+        return try {
+            val snapshot = firestore.collection("records")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+
+            // WriteBatch는 한 번에 최대 500건 → 나눠서 커밋.
+            // 중간에 실패하면 일부만 바뀐 상태가 되지만 표시용 복사본이라 불변식은 아니고,
+            // 같은 닉네임으로 다시 저장하면 전부 맞춰진다.
+            snapshot.documents.chunked(500).forEach { chunk ->
+                val batch = firestore.batch()
+                chunk.forEach { doc -> batch.update(doc.reference, "userName", userName) }
+                batch.commit().await()
             }
 
             Result.success(Unit)

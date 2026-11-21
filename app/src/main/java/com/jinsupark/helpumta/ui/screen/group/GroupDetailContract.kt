@@ -2,6 +2,7 @@ package com.jinsupark.helpumta.ui.screen.group
 
 import com.jinsupark.helpumta.domain.model.Group
 import com.jinsupark.helpumta.domain.model.GroupStats
+import com.jinsupark.helpumta.domain.model.MemberProfile
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 
 object GroupDetailContract {
@@ -13,6 +14,7 @@ object GroupDetailContract {
         val currentUserId: String? = null,
         val group: Group? = null,
         val records: List<WorkoutRecord> = emptyList(),
+        val memberProfiles: Map<String, MemberProfile> = emptyMap(),  // uid → 프로필 (아바타용)
         val hasWroteToday: Boolean = false,
         val isLoading: Boolean = false,
         val errorMessage: String? = null,

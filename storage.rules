@@ -20,5 +20,11 @@ service firebase.storage {
       allow create, update: if isSignedIn() && isImage();
       allow delete: if isSignedIn();
     }
+    // 프로필 사진
+    match /profiles/{fileName} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isImage();
+      allow delete: if isSignedIn();
+    }
   }
 }

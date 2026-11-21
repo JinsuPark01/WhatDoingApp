@@ -37,6 +37,9 @@ interface RecordRepository {
         comment: String
     ): Result<Unit>
 
+    // 닉네임 변경 시 — 내 모든 기록의 userName(복사본)을 맞춘다
+    suspend fun updateUserNameInRecords(userId: String, userName: String): Result<Unit>
+
     suspend fun getRecordsByUser(userId: String): Result<List<WorkoutRecord>>
     suspend fun getRecordById(recordId: String): Result<WorkoutRecord>
     suspend fun deleteRecord(recordId: String, currentUserId: String): Result<Unit>
