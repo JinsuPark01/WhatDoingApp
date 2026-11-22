@@ -6,35 +6,27 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
+import com.jinsupark.helpumta.domain.model.ExtractRatio
 import com.jinsupark.helpumta.domain.model.ExtractSlot
+import com.jinsupark.helpumta.domain.model.ExtractStyle
+import com.jinsupark.helpumta.domain.model.ExtractTemplate
+import com.jinsupark.helpumta.ui.component.PillChip
+import com.jinsupark.helpumta.ui.screen.extract.components.ExtractPreview
 import kotlinx.coroutines.launch
 
 @Composable
@@ -47,18 +39,22 @@ fun ExtractScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val graphicsLayer = rememberGraphicsLayer()
+    val captureLayer = rememberGraphicsLayer()
 
     // 캡처 전 이미지 로딩 완료 추적 (순수 UI 관심사라 ViewModel 미경유)
+    // 템플릿이 바뀌면 이미지 컴포저블이 새로 만들어져 다시 로드되므로 카운트도 다시 센다.
+    // (비율·옵션 변경은 같은 컴포저블이 유지되어 콜백이 다시 오지 않으므로 키에 넣지 않는다)
     val totalImageCount = remember(uiState.slots) {
         uiState.slots.count { it is ExtractSlot.Recorded && it.imageUrl.isNotBlank() }
     }
-    var settledImageCount by remember(uiState.slots) { mutableIntStateOf(0) }
+    var settledImageCount by remember(uiState.slots, uiState.style.template) {
+        mutableIntStateOf(0)
+    }
     val isImagesReady = settledImageCount >= totalImageCount
 
     val saveBitmap: () -> Unit = {
         scope.launch {
-            val bitmap = graphicsLayer.toImageBitmap().asAndroidBitmap()
+            val bitmap = captureLayer.toImageBitmap().asAndroidBitmap()
             viewModel.handleIntent(ExtractContract.Intent.Save(bitmap))
         }
     }
@@ -100,40 +96,6 @@ fun ExtractScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            if (uiState.slots.isNotEmpty()) {
-                val busy = uiState.isSaving || !isImagesReady
-
-                FloatingActionButton(
-                    onClick = {
-                        if (busy) return@FloatingActionButton
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            saveBitmap()
-                        } else {
-                            permissionLauncher.launch(
-                                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-                            )
-                        }
-                    },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    elevation = FloatingActionButtonDefaults.elevation(
-                        defaultElevation = 0.dp,
-                        pressedElevation = 0.dp
-                    )
-                ) {
-                    if (busy) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Icon(Icons.Default.Download, contentDescription = "이미지 저장")
-                    }
-                }
-            }
         }
     ) { paddingValues ->
         Box(
@@ -157,84 +119,56 @@ fun ExtractScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                else -> ExtractCanvas(
-                    slots = uiState.slots,
-                    graphicsLayer = graphicsLayer,
-                    onImageSettled = { settledImageCount++ }
-                )
-            }
-        }
-    }
-}
+                else -> Column(modifier = Modifier.fillMaxSize()) {
+                    // 미리보기는 남는 공간에 맞춰 축소된다. 저장 해상도는 영향받지 않는다.
+                    ExtractPreview(
+                        slots = uiState.slots,
+                        style = uiState.style,
+                        groupName = uiState.groupName,
+                        dateMillis = uiState.selectedDate,
+                        captureLayer = captureLayer,
+                        onImageSettled = { settledImageCount++ },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                    )
 
-// ─────────────────────────────────────────────
-// 아래는 앱 화면이 아니라 "저장되어 밖으로 나가는 이미지"다.
-// 앱 테마(라이트/다크)를 따라가지 않고 검정으로 고정하며,
-// 크기도 전부 고정값을 쓴다.
-// ─────────────────────────────────────────────
+                    ExtractControls(
+                        style = uiState.style,
+                        onStyleChange = { style ->
+                            viewModel.handleIntent(ExtractContract.Intent.UpdateStyle(style))
+                        }
+                    )
 
-private const val SLOT_MAX_HEIGHT_RATIO = 0.55f
-
-private val CanvasBackground = Color.Black
-private val EmptySlotBackground = Color(0xFF1A1A1A)
-private val NoImageBackground = Color(0xFF3B4A5A)
-
-@Composable
-private fun ExtractCanvas(
-    slots: List<ExtractSlot>,
-    graphicsLayer: GraphicsLayer,
-    onImageSettled: () -> Unit
-) {
-    val density = LocalDensity.current
-
-    // 미리보기만 모서리를 둥글게 자른다. 캡처 대상은 바깥 Box 안쪽이라
-    // 저장되는 이미지에는 둥근 모서리(=투명/검은 귀퉁이)가 남지 않는다.
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .aspectRatio(9f / 16f)
-            .clip(MaterialTheme.shapes.large)
-    ) {
-        // 글꼴 배율을 1로 고정한다.
-        // sp를 그대로 두면 시스템 글꼴을 키운 사람이 뽑은 이미지만 글자가 커져서,
-        // 같은 날 같은 기록인데 누가 저장했느냐에 따라 결과물이 달라진다.
-        CompositionLocalProvider(
-            LocalDensity provides Density(density = density.density, fontScale = 1f)
-        ) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .drawWithContent {
-                        graphicsLayer.record { this@drawWithContent.drawContent() }
-                        drawLayer(graphicsLayer)
-                    }
-                    .background(CanvasBackground)
-            ) {
-                val canvasHeight = maxHeight
-                val canvasWidth = maxWidth
-                val count = slots.size.coerceAtLeast(1)
-
-                val evenHeight = canvasHeight / count
-                val slotHeight = minOf(evenHeight, canvasWidth * SLOT_MAX_HEIGHT_RATIO)
-
-                val totalSlotsHeight = slotHeight * count
-                val verticalPadding =
-                    ((canvasHeight - totalSlotsHeight) / 2).coerceAtLeast(0.dp)
-
-                Column(modifier = Modifier.fillMaxSize()) {
-                    if (verticalPadding > 0.dp) {
-                        Spacer(Modifier.height(verticalPadding))
-                    }
-                    slots.forEach { slot ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(slotHeight)
-                        ) {
-                            when (slot) {
-                                is ExtractSlot.Recorded -> RecordedSlot(slot, onImageSettled)
-                                is ExtractSlot.Empty -> EmptySlot(slot)
+                    val busy = uiState.isSaving || !isImagesReady
+                    // FAB는 아래 옵션 칩을 가린다 → 다른 폼 화면과 같은 하단 버튼으로
+                    Button(
+                        onClick = {
+                            if (busy) return@Button
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                saveBitmap()
+                            } else {
+                                permissionLauncher.launch(
+                                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                                )
                             }
+                        },
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp)
+                            .height(52.dp)
+                    ) {
+                        // 버튼을 스피너로 갈아끼우면 높이가 달라져 화면이 들썩인다 → 내용만 교체
+                        if (busy) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("이미지 저장", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -244,128 +178,84 @@ private fun ExtractCanvas(
 }
 
 @Composable
-private fun RecordedSlot(
-    slot: ExtractSlot.Recorded,
-    onImageSettled: () -> Unit
+private fun ExtractControls(
+    style: ExtractStyle,
+    onStyleChange: (ExtractStyle) -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (slot.imageUrl.isNotBlank()) {
-            AsyncImage(
-                model = slot.imageUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                // 성공/실패 모두 "더 기다릴 필요 없음"으로 처리
-                onSuccess = { onImageSettled() },
-                onError = { onImageSettled() }
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(NoImageBackground)
-            )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        ControlRow(label = "스타일") {
+            ExtractTemplate.entries.forEach { template ->
+                PillChip(
+                    text = template.label(),
+                    selected = style.template == template,
+                    onClick = { onStyleChange(style.copy(template = template)) }
+                )
+            }
         }
-
-        // 균일한 오버레이는 밝은 사진에서 글자를 못 살린다.
-        // 글자가 있는 양끝만 어둡게 깔고 가운데는 사진을 살린다.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        0f to Color.Black.copy(alpha = 0.6f),
-                        0.3f to Color.Black.copy(alpha = 0.18f),
-                        0.7f to Color.Black.copy(alpha = 0.18f),
-                        1f to Color.Black.copy(alpha = 0.6f)
-                    )
-                )
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 26.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = slot.nickname,
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (slot.comment.isNotBlank()) {
-                    Spacer(Modifier.height(5.dp))
-                    Text(
-                        text = slot.comment,
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Spacer(Modifier.width(16.dp))
-
-            // "운동 시간"/"운동 종목" 라벨을 뺐다.
-            // 180분과 등산은 라벨 없이도 읽히고, 9sp 라벨은 저장된 이미지에서 안 보인다.
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "${slot.workoutDuration}분",
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    text = slot.workoutType,
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 140.dp)
+        ControlRow(label = "비율") {
+            ExtractRatio.entries.forEach { ratio ->
+                PillChip(
+                    text = ratio.label(),
+                    selected = style.ratio == ratio,
+                    onClick = { onStyleChange(style.copy(ratio = ratio)) }
                 )
             }
+        }
+        ControlRow(label = "표시") {
+            PillChip(
+                text = "그룹·날짜",
+                selected = style.showHeader,
+                onClick = { onStyleChange(style.copy(showHeader = !style.showHeader)) }
+            )
+            PillChip(
+                text = "소감",
+                selected = style.showComment,
+                onClick = { onStyleChange(style.copy(showComment = !style.showComment)) }
+            )
+            PillChip(
+                text = "기록 없는 멤버",
+                selected = style.includeEmpty,
+                onClick = { onStyleChange(style.copy(includeEmpty = !style.includeEmpty)) }
+            )
         }
     }
 }
 
+// 라벨 + 가로 스크롤 칩 줄. 라벨 폭을 고정해 세 줄의 칩 시작점을 맞춘다
 @Composable
-private fun EmptySlot(slot: ExtractSlot.Empty) {
-    Box(
+private fun ControlRow(
+    label: String,
+    content: @Composable RowScope.() -> Unit
+) {
+    Row(
         modifier = Modifier
-            .fillMaxSize()
-            .background(EmptySlotBackground)
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 26.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = slot.nickname,
-                color = Color.White.copy(alpha = 0.45f),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-
-            Spacer(Modifier.width(16.dp))
-
-            // 이모지는 color 지정이 먹지 않아 💤가 파랗게 박혔다. 글자로 바꿨다.
-            Text(
-                text = "기록 없음",
-                color = Color.White.copy(alpha = 0.35f),
-                fontSize = 13.sp
-            )
-        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(44.dp)
+        )
+        content()
     }
+}
+
+// 표시 이름은 UI 몫 — 도메인 enum은 이름을 모른다
+private fun ExtractTemplate.label(): String = when (this) {
+    ExtractTemplate.STRIP -> "스트립"
+    ExtractTemplate.GRID -> "그리드"
+}
+
+private fun ExtractRatio.label(): String = when (this) {
+    ExtractRatio.STORY -> "9:16"
+    ExtractRatio.FEED -> "4:5"
+    ExtractRatio.SQUARE -> "1:1"
 }

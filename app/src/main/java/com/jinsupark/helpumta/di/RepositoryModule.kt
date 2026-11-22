@@ -1,12 +1,14 @@
 package com.jinsupark.helpumta.di
 
 import com.jinsupark.helpumta.data.repository.AuthRepositoryImpl
+import com.jinsupark.helpumta.data.repository.ExtractStyleRepositoryImpl
 import com.jinsupark.helpumta.data.repository.GroupRepositoryImpl
 import com.jinsupark.helpumta.data.repository.RecordRepositoryImpl
 import com.jinsupark.helpumta.data.repository.SettingsRepositoryImpl
 import com.jinsupark.helpumta.data.repository.UserRepositoryImpl
 import com.jinsupark.helpumta.data.repository.WorkoutTypeHistoryRepositoryImpl
 import com.jinsupark.helpumta.domain.repository.AuthRepository
+import com.jinsupark.helpumta.domain.repository.ExtractStyleRepository
 import com.jinsupark.helpumta.domain.repository.GroupRepository
 import com.jinsupark.helpumta.domain.repository.RecordRepository
 import com.jinsupark.helpumta.domain.repository.SettingsRepository
@@ -57,4 +59,10 @@ abstract class RepositoryModule {
     abstract fun bindWorkoutTypeHistoryRepository(
         workoutTypeHistoryRepositoryImpl: WorkoutTypeHistoryRepositoryImpl
     ): WorkoutTypeHistoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExtractStyleRepository(
+        extractStyleRepositoryImpl: ExtractStyleRepositoryImpl
+    ): ExtractStyleRepository
 }
