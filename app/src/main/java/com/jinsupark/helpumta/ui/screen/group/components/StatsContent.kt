@@ -27,7 +27,8 @@ fun StatsContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 40.dp),
-        verticalArrangement = Arrangement.spacedBy(36.dp)
+        // 섹션 사이 = 24dp + 구분선 + 24dp
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // ── 이번 주: 시간이 주인공, 차트가 본체
         StatsSection(title = "이번 주") {
@@ -52,6 +53,8 @@ fun StatsContent(
             )
         }
 
+        SectionDivider()
+
         // ── 이번 달: 꾸준함이 주인공.
         //    주간과 같은 "시간+일수" 2개 메트릭을 쓰면 복사한 것처럼 보이므로
         //    큰 숫자를 일수로 바꾸고 시간을 보조로 내린다.
@@ -72,6 +75,8 @@ fun StatsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+        SectionDivider()
 
         // ── 그룹원 비교
         StatsSection(title = "이번 주 그룹원") {
@@ -100,7 +105,7 @@ fun StatsContent(
 /**
  * 카드를 쓰지 않는다.
  * 기록 탭에서 카드를 걷어냈는데 통계 탭만 회색 블록이 쌓이면 같은 화면의 두 탭이 따로 논다.
- * 구분은 섹션 제목과 여백이 맡는다.
+ * 구분은 섹션 사이 얇은 구분선(기록 탭과 같은 선)이 맡는다.
  */
 @Composable
 private fun StatsSection(
@@ -116,6 +121,15 @@ private fun StatsSection(
         Spacer(Modifier.height(12.dp))
         content()
     }
+}
+
+// 기록 탭 구분선과 같은 규격 — 두 탭이 같은 문법을 쓰도록
+@Composable
+private fun SectionDivider() {
+    HorizontalDivider(
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+    )
 }
 
 @Composable

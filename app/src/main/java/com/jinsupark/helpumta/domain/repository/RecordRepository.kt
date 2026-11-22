@@ -1,5 +1,6 @@
 package com.jinsupark.helpumta.domain.repository
 
+import com.jinsupark.helpumta.domain.model.Reaction
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 
 interface RecordRepository {
@@ -39,6 +40,9 @@ interface RecordRepository {
 
     // 닉네임 변경 시 — 내 모든 기록의 userName(복사본)을 맞춘다
     suspend fun updateUserNameInRecords(userId: String, userName: String): Result<Unit>
+
+    // 내 리액션 설정. null이면 취소
+    suspend fun setReaction(recordId: String, userId: String, reaction: Reaction?): Result<Unit>
 
     suspend fun getRecordsByUser(userId: String): Result<List<WorkoutRecord>>
     suspend fun getRecordById(recordId: String): Result<WorkoutRecord>

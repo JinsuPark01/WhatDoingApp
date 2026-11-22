@@ -2,6 +2,7 @@ package com.jinsupark.helpumta.ui.screen.group
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jinsupark.helpumta.domain.model.Reaction
 import com.jinsupark.helpumta.domain.usecase.DeleteRecordUseCase
 import com.jinsupark.helpumta.domain.usecase.GetCurrentUserIdUseCase
 import com.jinsupark.helpumta.domain.usecase.GetGroupDetailUseCase
@@ -11,6 +12,7 @@ import com.jinsupark.helpumta.domain.usecase.GetMyRecordDatesUseCase
 import com.jinsupark.helpumta.domain.usecase.GetRecordsByGroupUseCase
 import com.jinsupark.helpumta.domain.usecase.HasWroteTodayUseCase
 import com.jinsupark.helpumta.domain.usecase.LeaveGroupUseCase
+import com.jinsupark.helpumta.domain.usecase.SetReactionUseCase
 import com.jinsupark.helpumta.widget.WidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -35,6 +37,7 @@ class GroupDetailViewModel @Inject constructor(
     private val getGroupStatsUseCase: GetGroupStatsUseCase,
     private val getMyRecordDatesUseCase: GetMyRecordDatesUseCase,
     private val getMemberProfilesUseCase: GetMemberProfilesUseCase,
+    private val setReactionUseCase: SetReactionUseCase,
     private val widgetUpdater: WidgetUpdater
 ) : ViewModel() {
 
@@ -57,6 +60,7 @@ class GroupDetailViewModel @Inject constructor(
             GroupDetailContract.Intent.RefreshToToday -> refreshToToday()
             GroupDetailContract.Intent.RefreshGroup -> refreshGroup()
             is GroupDetailContract.Intent.DeleteRecord -> deleteRecord(intent.recordId)
+            is GroupDetailContract.Intent.React -> react(intent.recordId, intent.reaction)
             GroupDetailContract.Intent.AlreadyWroteToday -> {
                 viewModelScope.launch {
                     _sideEffect.emit(
@@ -225,6 +229,46 @@ class GroupDetailViewModel @Inject constructor(
                 )}
                 widgetUpdater.refresh()
             }
+        }
+    }
+
+    // --- 리액션 ---
+
+    /**
+     * 낙관적 업데이트: 화면을 먼저 바꾸고 서버에 보낸다. 실패하면 그 기록의 내 리액션만 되돌린다.
+     * 기록 전체를 스냅샷으로 되돌리지 않는 이유 — 그 사이 다른 기록이 바뀌었을 수 있다.
+     */
+    private fun react(recordId: String, reaction: Reaction?) {
+        val uid = _uiState.value.currentUserId ?: return
+        val target = _uiState.value.records.find { it.id == recordId } ?: return
+        if (target.userId == uid) return   // 내 기록엔 리액션하지 않는다 (규칙과 별개로 UI 방어)
+
+        val previous = target.reactions[uid]
+        if (previous == reaction) return
+
+        applyMyReaction(recordId, uid, reaction)
+
+        viewModelScope.launch {
+            setReactionUseCase(recordId, reaction).onFailure {
+                applyMyReaction(recordId, uid, previous)
+                _sideEffect.emit(
+                    GroupDetailContract.SideEffect.ShowToast("응원을 남기지 못했어요. 다시 시도해주세요.")
+                )
+            }
+        }
+    }
+
+    private fun applyMyReaction(recordId: String, uid: String, reaction: Reaction?) {
+        _uiState.update { state ->
+            state.copy(
+                records = state.records.map { record ->
+                    if (record.id != recordId) record
+                    else record.copy(
+                        reactions = if (reaction == null) record.reactions - uid
+                        else record.reactions + (uid to reaction)
+                    )
+                }
+            )
         }
     }
 

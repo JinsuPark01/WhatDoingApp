@@ -2,8 +2,11 @@ package com.jinsupark.helpumta.data.repository
 
 import android.net.Uri
 import com.jinsupark.helpumta.data.mapper.toWorkoutRecord
+import com.jinsupark.helpumta.domain.model.Reaction
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 import com.jinsupark.helpumta.domain.repository.RecordRepository
+import com.google.firebase.firestore.FieldPath
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
@@ -162,7 +165,7 @@ class RecordRepositoryImpl @Inject constructor(
                 }
             }
 
-            // Firestore 업데이트 (createdAt, userId, userName, groupId는 안 건드림)
+            // Firestore 업데이트 (createdAt, userId, userName, groupId, reactions는 안 건드림)
             docRef.update(
                 mapOf(
                     "workoutType" to workoutType,
@@ -202,6 +205,27 @@ class RecordRepositoryImpl @Inject constructor(
                 batch.commit().await()
             }
 
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun setReaction(
+        recordId: String,
+        userId: String,
+        reaction: Reaction?
+    ): Result<Unit> {
+        return try {
+            // reactions 맵 전체가 아니라 '내 키' 하나만 갱신한다
+            // → 다른 멤버가 동시에 눌러도 서로 덮어쓰지 않아 트랜잭션이 필요 없다.
+            // uid를 문자열 경로("reactions.$uid")로 이으면 특수문자에 취약하므로 FieldPath로.
+            firestore.collection("records").document(recordId)
+                .update(
+                    FieldPath.of("reactions", userId),
+                    reaction?.key ?: FieldValue.delete()
+                )
+                .await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

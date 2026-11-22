@@ -3,6 +3,7 @@ package com.jinsupark.helpumta.ui.screen.group
 import com.jinsupark.helpumta.domain.model.Group
 import com.jinsupark.helpumta.domain.model.GroupStats
 import com.jinsupark.helpumta.domain.model.MemberProfile
+import com.jinsupark.helpumta.domain.model.Reaction
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 
 object GroupDetailContract {
@@ -43,6 +44,7 @@ object GroupDetailContract {
         data object RefreshToToday : Intent
         data object RefreshGroup : Intent                      // 그룹 정보 수정 후 재조회
         data class DeleteRecord(val recordId: String) : Intent
+        data class React(val recordId: String, val reaction: Reaction?) : Intent  // null이면 취소
         data object AlreadyWroteToday : Intent
         data class SelectTab(val tab: Tab) : Intent
         data object OpenCalendar : Intent                      // 캘린더 열기 — 해당 달 표시 로드

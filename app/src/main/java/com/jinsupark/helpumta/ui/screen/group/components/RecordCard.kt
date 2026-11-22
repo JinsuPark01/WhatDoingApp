@@ -1,6 +1,7 @@
 package com.jinsupark.helpumta.ui.screen.group.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -34,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.jinsupark.helpumta.domain.model.Reaction
 import com.jinsupark.helpumta.domain.model.WorkoutRecord
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 import java.text.SimpleDateFormat
@@ -45,7 +49,7 @@ import java.util.Locale
  *
  * 카드 테두리·배경·그림자를 모두 뺐다. 인증샷이 이 화면의 주인공이고,
  * 사진 자체가 덩어리 역할을 하므로 상자를 한 겹 더 두를 필요가 없다.
- * 항목 구분은 넉넉한 세로 간격이 맡는다.
+ * 항목 구분은 목록 쪽(GroupDetailScreen)의 얇은 구분선이 맡는다.
  */
 @Composable
 fun RecordCard(
@@ -55,7 +59,9 @@ fun RecordCard(
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
-    authorPhotoUrl: String = ""
+    authorPhotoUrl: String = "",
+    currentUserId: String? = null,
+    onReact: (Reaction?) -> Unit = {}
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
 
@@ -118,7 +124,94 @@ fun RecordCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
+
+        // ── 리액션
+        ReactionRow(
+            reactions = record.reactions,
+            isMine = record.userId == currentUserId,
+            myReaction = currentUserId?.let { record.reactions[it] },
+            onReact = onReact
+        )
     }
+}
+
+/**
+ * 리액션 줄.
+ * 종류가 3개뿐이라 "추가" 버튼 → 팝업을 거치지 않고 전부 노출한다.
+ * 내 기록: 받은 것만 읽기 전용으로 (없으면 줄 자체를 숨김). 누를 수 없는 0개짜리가 자리만 차지하지 않게.
+ * 남의 기록: 3개 모두 0부터 — 같은 걸 다시 누르면 취소, 다른 걸 누르면 교체.
+ */
+@Composable
+private fun ReactionRow(
+    reactions: Map<String, Reaction>,
+    isMine: Boolean,
+    myReaction: Reaction?,
+    onReact: (Reaction?) -> Unit
+) {
+    val counts = reactions.values.groupingBy { it }.eachCount()
+    val visible = if (isMine) {
+        Reaction.entries.filter { (counts[it] ?: 0) > 0 }
+    } else {
+        Reaction.entries
+    }
+    if (visible.isEmpty()) return
+
+    // 터치 영역 패딩만큼 왼쪽으로 당겨 이모지가 본문 왼쪽 선에 맞게
+    Spacer(Modifier.height(6.dp))
+    Row(modifier = Modifier.offset(x = (-8).dp)) {
+        visible.forEach { reaction ->
+            val isSelected = reaction == myReaction
+            ReactionItem(
+                emoji = reaction.emoji(),
+                count = counts[reaction] ?: 0,
+                isSelected = isSelected,
+                onClick = if (isMine) null else {
+                    { onReact(if (isSelected) null else reaction) }
+                }
+            )
+        }
+    }
+}
+
+/**
+ * 배경 없이 이모지 + 숫자(0 포함).
+ * 내가 누른 것만 숫자를 onSurface·SemiBold(titleSmall)로 진하게 — 상태 표시는 이것 하나.
+ * 배경은 없어도 터치 영역은 패딩으로 유지한다.
+ */
+@Composable
+private fun ReactionItem(
+    emoji: String,
+    count: Int,
+    isSelected: Boolean,
+    onClick: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier
+            .clip(CircleShape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = emoji,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = "$count",
+            style = if (isSelected) MaterialTheme.typography.titleSmall
+            else MaterialTheme.typography.bodySmall,
+            color = if (isSelected) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+// 표현은 UI 몫 — 도메인 Reaction은 key만 안다
+private fun Reaction.emoji(): String = when (this) {
+    Reaction.MUSCLE -> "💪"
+    Reaction.FIRE -> "🔥"
+    Reaction.CLAP -> "👏"
 }
 
 @Composable
@@ -206,23 +299,27 @@ private fun RecordCardPreview() {
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
+            // 내 기록 — 받은 리액션만 읽기 전용
             RecordCard(
                 record = WorkoutRecord(
                     id = "1",
                     groupId = "1",
-                    userId = "u1",
+                    userId = "me",
                     userName = "이정수",
                     workoutType = "사이클",
                     workoutDuration = 90,
                     imageUrl = "",
                     comment = "퇴근 후",
-                    createdAt = System.currentTimeMillis()
+                    createdAt = System.currentTimeMillis(),
+                    reactions = mapOf("u2" to Reaction.FIRE, "u3" to Reaction.FIRE)
                 ),
                 canEdit = true,
                 canDelete = true,
                 onEditClick = {},
-                onDeleteClick = {}
+                onDeleteClick = {},
+                currentUserId = "me"
             )
+            // 남의 기록 — 내가 💪를 누른 상태
             RecordCard(
                 record = WorkoutRecord(
                     id = "2",
@@ -233,12 +330,14 @@ private fun RecordCardPreview() {
                     workoutDuration = 45,
                     imageUrl = "",
                     comment = "한강런",
-                    createdAt = System.currentTimeMillis() - 3600000
+                    createdAt = System.currentTimeMillis() - 3600000,
+                    reactions = mapOf("me" to Reaction.MUSCLE)
                 ),
                 canEdit = false,
                 canDelete = false,
                 onEditClick = {},
-                onDeleteClick = {}
+                onDeleteClick = {},
+                currentUserId = "me"
             )
         }
     }

@@ -7,7 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -308,26 +308,41 @@ private fun GroupDetailContent(
                                                 top = 12.dp,
                                                 bottom = 100.dp   // FAB 가림 방지
                                             ),
-                                            verticalArrangement = Arrangement.spacedBy(32.dp)
+                                            verticalArrangement = Arrangement.spacedBy(24.dp)
                                         ) {
-                                            items(
+                                            itemsIndexed(
                                                 items = uiState.records,
-                                                key = { it.id }
-                                            ) { record ->
+                                                key = { _, record -> record.id }
+                                            ) { index, record ->
                                                 val isMine = record.userId == uiState.currentUserId
                                                 val canEdit = isMine && isSameDay(
                                                     record.createdAt,
                                                     System.currentTimeMillis()
                                                 )
-                                                RecordCard(
-                                                    record = record,
-                                                    canEdit = canEdit,
-                                                    canDelete = isMine,
-                                                    onEditClick = { onEditRecord(record.id) },
-                                                    onDeleteClick = { deleteTarget = record },
-                                                    authorPhotoUrl = uiState.memberProfiles[record.userId]
-                                                        ?.photoUrl.orEmpty()
-                                                )
+                                                Column {
+                                                    // 구분선을 아이템 '위'에 둔다 — 첫 항목만 빼면 되고
+                                                    // 마지막 항목 뒤에 선이 남지 않는다.
+                                                    // 콘텐츠 패딩(20dp) 안쪽이라 사진 폭과 같다.
+                                                    if (index > 0) {
+                                                        ListDivider()
+                                                        Spacer(Modifier.height(24.dp))
+                                                    }
+                                                    RecordCard(
+                                                        record = record,
+                                                        canEdit = canEdit,
+                                                        canDelete = isMine,
+                                                        onEditClick = { onEditRecord(record.id) },
+                                                        onDeleteClick = { deleteTarget = record },
+                                                        authorPhotoUrl = uiState.memberProfiles[record.userId]
+                                                            ?.photoUrl.orEmpty(),
+                                                        currentUserId = uiState.currentUserId,
+                                                        onReact = { reaction ->
+                                                            onIntent(
+                                                                GroupDetailContract.Intent.React(record.id, reaction)
+                                                            )
+                                                        }
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -425,6 +440,19 @@ private fun GroupDetailContent(
             onDismiss = { showDatePicker = false }
         )
     }
+}
+
+/**
+ * 기록 사이 구분선.
+ * outlineVariant는 배경과 명도 차가 작아 다크 모드에서 사라질 수 있다
+ * (TodayDots·통계 막대에서 두 번 겪은 함정) → onSurfaceVariant에 투명도.
+ */
+@Composable
+private fun ListDivider() {
+    HorizontalDivider(
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+    )
 }
 
 /**
