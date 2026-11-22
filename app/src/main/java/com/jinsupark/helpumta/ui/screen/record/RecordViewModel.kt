@@ -3,7 +3,9 @@ package com.jinsupark.helpumta.ui.screen.record
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.domain.model.WorkoutPolicy
+import com.jinsupark.helpumta.domain.usecase.AddRecentWorkoutTypeUseCase
 import com.jinsupark.helpumta.domain.usecase.CreateRecordUseCase
+import com.jinsupark.helpumta.domain.usecase.GetRecentWorkoutTypesUseCase
 import com.jinsupark.helpumta.domain.usecase.GetRecordByIdUseCase
 import com.jinsupark.helpumta.domain.usecase.UpdateRecordUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,13 +21,19 @@ import javax.inject.Inject
 class RecordViewModel @Inject constructor(
     private val createRecordUseCase: CreateRecordUseCase,
     private val updateRecordUseCase: UpdateRecordUseCase,
-    private val getRecordByIdUseCase: GetRecordByIdUseCase
+    private val getRecordByIdUseCase: GetRecordByIdUseCase,
+    private val getRecentWorkoutTypesUseCase: GetRecentWorkoutTypesUseCase,
+    private val addRecentWorkoutTypeUseCase: AddRecentWorkoutTypeUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(RecordContract.UiState())
     val uiState = _uiState.asStateFlow()
 
     private val _sideEffect = MutableSharedFlow<RecordContract.SideEffect>()
     val sideEffect = _sideEffect.asSharedFlow()
+
+    init {
+        observeRecentWorkoutTypes()
+    }
 
     fun handleIntent(intent: RecordContract.Intent) {
         when (intent) {
@@ -63,6 +71,14 @@ class RecordViewModel @Inject constructor(
         }
     }
 
+    private fun observeRecentWorkoutTypes() {
+        viewModelScope.launch {
+            getRecentWorkoutTypesUseCase().collect { types ->
+                _uiState.update { it.copy(recentWorkoutTypes = types) }
+            }
+        }
+    }
+
     private fun submitRecord() {
         if (_uiState.value.isLoading) return
 
@@ -90,6 +106,9 @@ class RecordViewModel @Inject constructor(
 
             result.fold(
                 onSuccess = {
+                    // 저장에 성공한 종목만 추천에 남긴다 (입력하다 그만둔 값은 남기지 않음)
+                    addRecentWorkoutTypeUseCase(state.workoutType)
+
                     _uiState.update { it.copy(isLoading = false) }
                     val msg = if (state.isEditMode) "기록을 수정했어요!" else "기록을 저장했어요!"
                     _sideEffect.emit(RecordContract.SideEffect.ShowToast(msg))

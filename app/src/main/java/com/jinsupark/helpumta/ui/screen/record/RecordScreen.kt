@@ -9,8 +9,10 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -136,12 +138,23 @@ private fun RecordContent(
                     .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                FormField(
-                    label = "운동 종류",
-                    value = uiState.workoutType,
-                    onValueChange = { onIntent(RecordContract.Intent.UpdateWorkoutType(it)) },
-                    placeholder = "헬스, 러닝, 사이클…"
-                )
+                // ── 운동 종류 + 최근 종목 칩
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FormField(
+                        label = "운동 종류",
+                        value = uiState.workoutType,
+                        onValueChange = { onIntent(RecordContract.Intent.UpdateWorkoutType(it)) },
+                        placeholder = "헬스, 러닝, 사이클…"
+                    )
+
+                    if (uiState.recentWorkoutTypes.isNotEmpty()) {
+                        RecentTypeChips(
+                            types = uiState.recentWorkoutTypes,
+                            selected = uiState.workoutType.trim(),
+                            onSelect = { onIntent(RecordContract.Intent.UpdateWorkoutType(it)) }
+                        )
+                    }
+                }
 
                 FormField(
                     // "최대 1440"을 라벨에서 뺐다.
@@ -259,6 +272,45 @@ private fun RecordContent(
     }
 }
 
+/**
+ * 최근 종목 칩.
+ * Material FilterChip 대신 직접 그린다 — 기본 칩은 테두리·체크 아이콘이 붙어
+ * 입력 칸 아래 보조 요소치고 무게가 크다. 탭 영역만 확보한 알약 하나로 충분하다.
+ * 선택 표시는 주황이 아니라 onSurface 반전으로 — 주황은 FAB·주요 버튼 몫이다.
+ */
+@Composable
+private fun RecentTypeChips(
+    types: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        types.forEach { type ->
+            val isSelected = type == selected
+            Text(
+                text = type,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isSelected) MaterialTheme.colorScheme.surface
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.surfaceContainerHigh
+                    )
+                    .clickable { onSelect(type) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun RecordContentPreview() {
@@ -280,7 +332,8 @@ private fun RecordContentFilledPreview() {
             uiState = RecordContract.UiState(
                 workoutType = "사이클",
                 workoutDuration = "90",
-                comment = "퇴근하고 바로 감"
+                comment = "퇴근하고 바로 감",
+                recentWorkoutTypes = listOf("사이클", "하체", "러닝", "등")
             ),
             onIntent = {},
             onNavigateBack = {},

@@ -9,6 +9,7 @@ object RecordContract {
         val workoutDuration: String = "",
         val imageUri: String? = null,
         val comment: String = "",
+        val recentWorkoutTypes: List<String> = emptyList(),  // 최근 입력한 종목 (칩)
         val isLoading: Boolean = false,
         val isInitializing: Boolean = false
     ) {
@@ -20,7 +21,7 @@ object RecordContract {
     }
 
     sealed interface Intent {
-        data class Initialize(val groupId: String, val recordId: String?) : Intent  // recordId 추가
+        data class Initialize(val groupId: String, val recordId: String?) : Intent
         data class UpdateWorkoutType(val type: String) : Intent
         data class UpdateDuration(val duration: String) : Intent
         data class UpdateImage(val uri: String?) : Intent
