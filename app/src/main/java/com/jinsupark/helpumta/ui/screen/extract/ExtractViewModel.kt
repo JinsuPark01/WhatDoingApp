@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jinsupark.helpumta.data.util.ImageSaver
+import com.jinsupark.helpumta.domain.model.ExtractSlot
 import com.jinsupark.helpumta.domain.model.ExtractStyle
 import com.jinsupark.helpumta.domain.usecase.GetDailyExtractUseCase
 import com.jinsupark.helpumta.domain.usecase.GetExtractStyleUseCase
@@ -44,6 +45,7 @@ class ExtractViewModel @Inject constructor(
         when (intent) {
             is ExtractContract.Intent.Load -> load(intent.groupId, intent.dateMillis)
             is ExtractContract.Intent.UpdateStyle -> updateStyle(intent.style)
+            is ExtractContract.Intent.UpdateSlotOrder -> updateSlotOrder(intent.slots)
             is ExtractContract.Intent.Save -> save(intent.bitmap)
         }
     }
@@ -59,6 +61,17 @@ class ExtractViewModel @Inject constructor(
 
     private fun updateStyle(style: ExtractStyle) {
         viewModelScope.launch { saveExtractStyleUseCase(style) }
+    }
+
+    /**
+     * 순서는 이 화면 안에서만 유지한다 (저장하지 않음).
+     * 날짜마다 기록한 사람이 달라 어제의 순서가 오늘 맞지 않는다.
+     * 같은 구성원인지 확인해 순서 외의 변경은 받지 않는다.
+     */
+    private fun updateSlotOrder(slots: List<ExtractSlot>) {
+        val current = _uiState.value.slots
+        if (slots.size != current.size || slots.toSet() != current.toSet()) return
+        _uiState.update { it.copy(slots = slots) }
     }
 
     private fun load(groupId: String, dateMillis: Long) {

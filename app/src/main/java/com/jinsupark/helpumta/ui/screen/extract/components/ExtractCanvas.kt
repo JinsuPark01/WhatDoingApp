@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -213,14 +214,17 @@ private fun StripLayout(
         Column(modifier = Modifier.fillMaxSize()) {
             if (verticalPadding > 0.dp) Spacer(Modifier.height(verticalPadding))
             slots.forEach { slot ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(slotHeight)
-                ) {
-                    when (slot) {
-                        is ExtractSlot.Recorded -> StripRecordedSlot(slot, showComment, onImageSettled)
-                        is ExtractSlot.Empty -> StripEmptySlot(slot)
+                // 순서를 바꿔도 칸이 데이터를 따라 이동 → 이미지를 다시 로드하지 않는다
+                key(slot) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(slotHeight)
+                    ) {
+                        when (slot) {
+                            is ExtractSlot.Recorded -> StripRecordedSlot(slot, showComment, onImageSettled)
+                            is ExtractSlot.Empty -> StripEmptySlot(slot)
+                        }
                     }
                 }
             }
@@ -378,15 +382,19 @@ private fun GridLayout(
                 horizontalArrangement = Arrangement.spacedBy(GRID_GAP)
             ) {
                 row.forEach { slot ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(6.dp))
-                    ) {
-                        when (slot) {
-                            is ExtractSlot.Recorded -> GridRecordedCell(slot, showComment, onImageSettled)
-                            is ExtractSlot.Empty -> GridEmptyCell(slot)
+                    // 같은 줄 안에서 자리를 바꾸면 노드가 이동한다
+                    // (다른 줄로 넘어가면 다시 그려지지만 이미지는 메모리 캐시에서 즉시 나온다)
+                    key(slot) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(6.dp))
+                        ) {
+                            when (slot) {
+                                is ExtractSlot.Recorded -> GridRecordedCell(slot, showComment, onImageSettled)
+                                is ExtractSlot.Empty -> GridEmptyCell(slot)
+                            }
                         }
                     }
                 }

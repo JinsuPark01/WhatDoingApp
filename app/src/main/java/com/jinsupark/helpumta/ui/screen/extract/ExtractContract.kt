@@ -7,7 +7,7 @@ import com.jinsupark.helpumta.domain.model.ExtractStyle
 object ExtractContract {
 
     data class UiState(
-        val slots: List<ExtractSlot> = emptyList(),
+        val slots: List<ExtractSlot> = emptyList(),   // 이 순서대로 그려지고 저장된다
         val groupName: String = "",          // 헤더용. 못 불러오면 빈 문자열 → 날짜만 표시
         val selectedDate: Long = 0L,
         val style: ExtractStyle = ExtractStyle(),
@@ -19,6 +19,7 @@ object ExtractContract {
     sealed interface Intent {
         data class Load(val groupId: String, val dateMillis: Long) : Intent
         data class UpdateStyle(val style: ExtractStyle) : Intent
+        data class UpdateSlotOrder(val slots: List<ExtractSlot>) : Intent  // 순서 바꾸기 시트 결과
         data class Save(val bitmap: Bitmap) : Intent
     }
 

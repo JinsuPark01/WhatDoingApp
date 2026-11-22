@@ -27,6 +27,7 @@ import com.jinsupark.helpumta.domain.model.ExtractStyle
 import com.jinsupark.helpumta.domain.model.ExtractTemplate
 import com.jinsupark.helpumta.ui.component.PillChip
 import com.jinsupark.helpumta.ui.screen.extract.components.ExtractPreview
+import com.jinsupark.helpumta.ui.screen.extract.components.ReorderSheet
 import kotlinx.coroutines.launch
 
 @Composable
@@ -41,13 +42,17 @@ fun ExtractScreen(
     val scope = rememberCoroutineScope()
     val captureLayer = rememberGraphicsLayer()
 
+    var showReorderSheet by remember { mutableStateOf(false) }
+
     // 캡처 전 이미지 로딩 완료 추적 (순수 UI 관심사라 ViewModel 미경유)
-    // 템플릿이 바뀌면 이미지 컴포저블이 새로 만들어져 다시 로드되므로 카운트도 다시 센다.
-    // (비율·옵션 변경은 같은 컴포저블이 유지되어 콜백이 다시 오지 않으므로 키에 넣지 않는다)
-    val totalImageCount = remember(uiState.slots) {
-        uiState.slots.count { it is ExtractSlot.Recorded && it.imageUrl.isNotBlank() }
+    // 키는 순서와 무관한 '집합'으로 — 순서만 바꿨을 때 카운터가 0으로 돌아가면
+    // 다시 로드되지 않는 이미지의 완료 신호를 영원히 기다리게 된다.
+    // 템플릿이 바뀌면 이미지 컴포저블이 새로 만들어져 다시 로드되므로 그때는 다시 센다.
+    val slotSet = remember(uiState.slots) { uiState.slots.toSet() }
+    val totalImageCount = remember(slotSet) {
+        slotSet.count { it is ExtractSlot.Recorded && it.imageUrl.isNotBlank() }
     }
-    var settledImageCount by remember(uiState.slots, uiState.style.template) {
+    var settledImageCount by remember(slotSet, uiState.style.template) {
         mutableIntStateOf(0)
     }
     val isImagesReady = settledImageCount >= totalImageCount
@@ -136,9 +141,11 @@ fun ExtractScreen(
 
                     ExtractControls(
                         style = uiState.style,
+                        canReorder = uiState.slots.size > 1,
                         onStyleChange = { style ->
                             viewModel.handleIntent(ExtractContract.Intent.UpdateStyle(style))
-                        }
+                        },
+                        onReorderClick = { showReorderSheet = true }
                     )
 
                     val busy = uiState.isSaving || !isImagesReady
@@ -175,12 +182,24 @@ fun ExtractScreen(
             }
         }
     }
+
+    if (showReorderSheet) {
+        ReorderSheet(
+            slots = uiState.slots,
+            onApply = { reordered ->
+                viewModel.handleIntent(ExtractContract.Intent.UpdateSlotOrder(reordered))
+            },
+            onDismiss = { showReorderSheet = false }
+        )
+    }
 }
 
 @Composable
 private fun ExtractControls(
     style: ExtractStyle,
-    onStyleChange: (ExtractStyle) -> Unit
+    canReorder: Boolean,
+    onStyleChange: (ExtractStyle) -> Unit,
+    onReorderClick: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -221,10 +240,20 @@ private fun ExtractControls(
                 onClick = { onStyleChange(style.copy(includeEmpty = !style.includeEmpty)) }
             )
         }
+        // 한 명뿐이면 바꿀 순서가 없다
+        if (canReorder) {
+            ControlRow(label = "순서") {
+                PillChip(
+                    text = "순서 바꾸기",
+                    selected = false,
+                    onClick = onReorderClick
+                )
+            }
+        }
     }
 }
 
-// 라벨 + 가로 스크롤 칩 줄. 라벨 폭을 고정해 세 줄의 칩 시작점을 맞춘다
+// 라벨 + 가로 스크롤 칩 줄. 라벨 폭을 고정해 줄마다 칩 시작점을 맞춘다
 @Composable
 private fun ControlRow(
     label: String,
