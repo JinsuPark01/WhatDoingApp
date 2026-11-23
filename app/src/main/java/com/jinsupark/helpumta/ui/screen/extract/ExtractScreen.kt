@@ -21,12 +21,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jinsupark.helpumta.domain.model.ExtractPalette
 import com.jinsupark.helpumta.domain.model.ExtractRatio
 import com.jinsupark.helpumta.domain.model.ExtractSlot
 import com.jinsupark.helpumta.domain.model.ExtractStyle
 import com.jinsupark.helpumta.domain.model.ExtractTemplate
 import com.jinsupark.helpumta.ui.component.PillChip
 import com.jinsupark.helpumta.ui.screen.extract.components.ExtractPreview
+import com.jinsupark.helpumta.ui.screen.extract.components.PaletteSwatch
 import com.jinsupark.helpumta.ui.screen.extract.components.ReorderSheet
 import kotlinx.coroutines.launch
 
@@ -55,7 +57,9 @@ fun ExtractScreen(
     var settledImageCount by remember(slotSet, uiState.style.template) {
         mutableIntStateOf(0)
     }
-    val isImagesReady = settledImageCount >= totalImageCount
+    // 타이포는 사진을 그리지 않는다 → 기다릴 이미지가 없다 (안 빼면 저장 버튼이 영원히 대기)
+    val isImagesReady = uiState.style.template == ExtractTemplate.TYPO ||
+            settledImageCount >= totalImageCount
 
     val saveBitmap: () -> Unit = {
         scope.launch {
@@ -87,6 +91,11 @@ fun ExtractScreen(
         }
     }
 
+    // 로딩·에러·빈 화면에선 바꿀 순서가 없다. 한 명뿐이어도 마찬가지
+    val canReorder = !uiState.isLoading &&
+            uiState.errorMessage == null &&
+            uiState.slots.size > 1
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -98,6 +107,19 @@ fun ExtractScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
+                    }
+                },
+                // 순서는 한 번 정하면 잘 안 건드린다 → 옵션 줄 대신 앱바로 (그 자리는 색 옵션에)
+                actions = {
+                    if (canReorder) {
+                        TextButton(
+                            onClick = { showReorderSheet = true },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Text("순서 바꾸기", style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                 }
             )
@@ -141,11 +163,9 @@ fun ExtractScreen(
 
                     ExtractControls(
                         style = uiState.style,
-                        canReorder = uiState.slots.size > 1,
                         onStyleChange = { style ->
                             viewModel.handleIntent(ExtractContract.Intent.UpdateStyle(style))
-                        },
-                        onReorderClick = { showReorderSheet = true }
+                        }
                     )
 
                     val busy = uiState.isSaving || !isImagesReady
@@ -197,9 +217,7 @@ fun ExtractScreen(
 @Composable
 private fun ExtractControls(
     style: ExtractStyle,
-    canReorder: Boolean,
-    onStyleChange: (ExtractStyle) -> Unit,
-    onReorderClick: () -> Unit
+    onStyleChange: (ExtractStyle) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -223,11 +241,29 @@ private fun ExtractControls(
                 )
             }
         }
+        // 템플릿마다 따로 저장된다 — 고른 적 없으면 그 템플릿 대표 색이 선택돼 보인다
+        ControlRow(label = "색") {
+            ExtractPalette.ALL.forEach { palette ->
+                PaletteSwatch(
+                    palette = palette,
+                    template = style.template,
+                    selected = style.palette == palette,
+                    onClick = { onStyleChange(style.withPalette(palette)) }
+                )
+            }
+        }
         ControlRow(label = "표시") {
             PillChip(
                 text = "그룹·날짜",
                 selected = style.showHeader,
                 onClick = { onStyleChange(style.copy(showHeader = !style.showHeader)) }
+            )
+            // 헤더에 묶여 있어서 바로 옆에 둔다. 헤더가 꺼진 동안은 흐리게 (타이포 제외)
+            PillChip(
+                text = "로고",
+                selected = style.showLogo,
+                enabled = style.isLogoToggleEnabled,
+                onClick = { onStyleChange(style.copy(showLogo = !style.showLogo)) }
             )
             PillChip(
                 text = "소감",
@@ -240,20 +276,10 @@ private fun ExtractControls(
                 onClick = { onStyleChange(style.copy(includeEmpty = !style.includeEmpty)) }
             )
         }
-        // 한 명뿐이면 바꿀 순서가 없다
-        if (canReorder) {
-            ControlRow(label = "순서") {
-                PillChip(
-                    text = "순서 바꾸기",
-                    selected = false,
-                    onClick = onReorderClick
-                )
-            }
-        }
     }
 }
 
-// 라벨 + 가로 스크롤 칩 줄. 라벨 폭을 고정해 줄마다 칩 시작점을 맞춘다
+// 라벨은 고정, 칩 줄만 가로 스크롤. 라벨 폭을 고정해 줄마다 칩 시작점을 맞춘다
 @Composable
 private fun ControlRow(
     label: String,
@@ -262,10 +288,8 @@ private fun ControlRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(start = 20.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
@@ -273,7 +297,18 @@ private fun ControlRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(44.dp)
         )
-        content()
+        Spacer(Modifier.width(8.dp))
+        // 오른쪽 여백은 스크롤 안쪽에 둔다 — 끝까지 밀었을 때 마지막 칩이 화면 끝에 붙지 않게
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState())
+                .padding(end = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            content()
+        }
     }
 }
 
@@ -281,6 +316,8 @@ private fun ControlRow(
 private fun ExtractTemplate.label(): String = when (this) {
     ExtractTemplate.STRIP -> "스트립"
     ExtractTemplate.GRID -> "그리드"
+    ExtractTemplate.CARD -> "카드"
+    ExtractTemplate.TYPO -> "타이포"
 }
 
 private fun ExtractRatio.label(): String = when (this) {
