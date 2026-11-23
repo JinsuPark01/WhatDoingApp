@@ -118,7 +118,7 @@ class UserRepositoryImpl @Inject constructor(
 
             // 내 문서는 나만 쓴다 → 동시 수정 경합이 없어 트랜잭션 불필요 (기록 수정과 같은 판단)
             val oldUrl = docRef.get().await().getString("photoUrl").orEmpty()
-            val newUrl = imageUri?.let { uploadProfileImage(it) } ?: ""
+            val newUrl = imageUri?.let { uploadProfileImage(uid, it) } ?: ""
 
             try {
                 docRef.set(mapOf("photoUrl" to newUrl), SetOptions.merge()).await()
@@ -138,7 +138,6 @@ class UserRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
-
     override suspend fun deleteUser(uid: String): Result<Unit> {
         return try {
             val docRef = userDoc(uid)
@@ -205,14 +204,14 @@ class UserRepositoryImpl @Inject constructor(
     private fun fcmDoc(uid: String): DocumentReference =
         userDoc(uid).collection(PRIVATE).document(FCM_DOC)
 
+    // profiles/{uid}/{uuid}.jpg — 경로의 uid로 Storage 규칙이 소유자를 확인한다
     // 아바타는 최대 80dp로 표시 → 512px이면 고밀도 화면에서도 충분
-    private suspend fun uploadProfileImage(uriString: String): String {
+    private suspend fun uploadProfileImage(uid: String, uriString: String): String {
         val bytes = imageCompressor.compress(Uri.parse(uriString), maxSize = 512)
-        val ref = storage.reference.child("profiles/${UUID.randomUUID()}.jpg")
+        val ref = storage.reference.child("profiles/$uid/${UUID.randomUUID()}.jpg")
         ref.putBytes(bytes, storageMetadata { contentType = "image/jpeg" }).await()
         return ref.downloadUrl.await().toString()
     }
-
     private companion object {
         const val USERS = "users"
         // Functions(index.ts)와 경로가 같아야 한다

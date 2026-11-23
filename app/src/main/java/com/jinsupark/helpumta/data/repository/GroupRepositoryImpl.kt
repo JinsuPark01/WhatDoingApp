@@ -42,7 +42,12 @@ class GroupRepositoryImpl @Inject constructor(
         imageUri: String?
     ): Result<String> {
         return try {
-            val imageUrl = imageUri?.let { uploadGroupImage(it) } ?: ""
+            // ID를 먼저 만든다 — 이미지를 groups/{groupId}/ 아래에 올려야
+            // Storage 규칙이 그룹 멤버 기준으로 수정·삭제를 판단할 수 있다.
+            // (document()는 로컬에서 ID만 만들고 서버엔 아무것도 쓰지 않는다)
+            val docRef = firestore.collection("groups").document()
+
+            val imageUrl = imageUri?.let { uploadGroupImage(docRef.id, it) } ?: ""
 
             val groupData = hashMapOf(
                 "name" to name,
@@ -52,9 +57,13 @@ class GroupRepositoryImpl @Inject constructor(
                 "createdAt" to System.currentTimeMillis()
             )
 
-            val docRef = firestore.collection("groups")
-                .add(groupData)
-                .await()
+            try {
+                docRef.set(groupData).await()
+            } catch (e: Exception) {
+                // 문서 저장 실패 → 방금 올린 이미지는 아무도 참조하지 않으므로 정리
+                imageCleaner.delete(imageUrl)
+                throw e
+            }
 
             Result.success(docRef.id)
         } catch (e: Exception) {
@@ -71,7 +80,11 @@ class GroupRepositoryImpl @Inject constructor(
     ): Result<Unit> {
         // 새 로컬 이미지일 때만 업로드. 트랜잭션은 재시도될 수 있으므로 업로드는 밖에서 한 번만
         val uploadedUrl: String? = try {
-            if (imageUri != null && !imageUri.startsWith("http")) uploadGroupImage(imageUri) else null
+            if (imageUri != null && !imageUri.startsWith("http")) {
+                uploadGroupImage(groupId, imageUri)
+            } else {
+                null
+            }
         } catch (e: Exception) {
             return Result.failure(e)
         }
@@ -212,6 +225,7 @@ class GroupRepositoryImpl @Inject constructor(
             }.await()
 
             // 그룹이 실제로 삭제된 경우에만 대표 이미지 정리 (백그라운드)
+            // 그룹 문서가 이미 없으므로 Storage 규칙의 "그룹이 사라졌으면 삭제 허용"으로 통과한다
             imageCleaner.delete(deletedImageUrl.orEmpty())
 
             Result.success(Unit)
@@ -234,9 +248,10 @@ class GroupRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun uploadGroupImage(uriString: String): String {
+    // groups/{groupId}/{uuid}.jpg — 업로더가 아니라 그룹 단위 (멤버 누구나 교체·정리)
+    private suspend fun uploadGroupImage(groupId: String, uriString: String): String {
         val bytes = imageCompressor.compress(Uri.parse(uriString), maxSize = 1080)
-        val ref = storage.reference.child("groups/${UUID.randomUUID()}.jpg")
+        val ref = storage.reference.child("groups/$groupId/${UUID.randomUUID()}.jpg")
         ref.putBytes(bytes, storageMetadata { contentType = "image/jpeg" }).await()
         return ref.downloadUrl.await().toString()
     }

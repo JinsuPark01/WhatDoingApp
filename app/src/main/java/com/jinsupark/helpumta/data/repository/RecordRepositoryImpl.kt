@@ -103,7 +103,7 @@ class RecordRepositoryImpl @Inject constructor(
     ): Result<String> {
         return try {
             // 1. 이미지 업로드 (있을 때만)
-            val imageUrl = imageUri?.let { uploadImage(groupId, it) } ?: ""
+            val imageUrl = imageUri?.let { uploadImage(groupId, userId, it) } ?: ""
 
             // 2. Firestore에 기록 저장
             val recordData = hashMapOf(
@@ -117,9 +117,13 @@ class RecordRepositoryImpl @Inject constructor(
                 "createdAt" to System.currentTimeMillis()
             )
 
-            val docRef = firestore.collection("records")
-                .add(recordData)
-                .await()
+            val docRef = try {
+                firestore.collection("records").add(recordData).await()
+            } catch (e: Exception) {
+                // 문서 저장 실패 → 방금 올린 이미지는 아무도 참조하지 않으므로 정리
+                imageCleaner.delete(imageUrl)
+                throw e
+            }
 
             Result.success(docRef.id)
         } catch (e: Exception) {
@@ -161,19 +165,25 @@ class RecordRepositoryImpl @Inject constructor(
                 // 3. 새 로컬 이미지 (content/file) → 업로드 (기존 삭제는 아래에서)
                 else -> {
                     val groupId = snapshot.getString("groupId") ?: ""
-                    uploadImage(groupId, imageUri)
+                    uploadImage(groupId, currentUserId, imageUri)
                 }
             }
 
             // Firestore 업데이트 (createdAt, userId, userName, groupId, reactions는 안 건드림)
-            docRef.update(
-                mapOf(
-                    "workoutType" to workoutType,
-                    "workoutDuration" to workoutDuration,
-                    "imageUrl" to newImageUrl,
-                    "comment" to comment
-                )
-            ).await()
+            try {
+                docRef.update(
+                    mapOf(
+                        "workoutType" to workoutType,
+                        "workoutDuration" to workoutDuration,
+                        "imageUrl" to newImageUrl,
+                        "comment" to comment
+                    )
+                ).await()
+            } catch (e: Exception) {
+                // 반영 실패 → 새로 올린 이미지만 정리 (기존 이미지는 아직 참조 중)
+                if (newImageUrl != oldImageUrl) imageCleaner.delete(newImageUrl)
+                throw e
+            }
 
             // 더 이상 참조되지 않는 기존 이미지는 백그라운드에서 정리
             if (oldImageUrl.isNotBlank() && oldImageUrl != newImageUrl) {
@@ -294,7 +304,7 @@ class RecordRepositoryImpl @Inject constructor(
                 // Firestore 문서 먼저 삭제
                 doc.reference.delete().await()
 
-                // 이미지 정리는 백그라운드로
+                // 이미지 정리는 백그라운드로 (경로에 내 uid가 있어 그룹을 나간 뒤에도 지울 수 있다)
                 imageCleaner.delete(imageUrl)
             }
 
@@ -304,9 +314,10 @@ class RecordRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun uploadImage(groupId: String, uriString: String): String {
+    // records/{groupId}/{userId}/{uuid}.jpg — 경로의 userId로 Storage 규칙이 소유자를 확인한다
+    private suspend fun uploadImage(groupId: String, userId: String, uriString: String): String {
         val bytes = imageCompressor.compress(Uri.parse(uriString))
-        val ref = storage.reference.child("records/$groupId/${UUID.randomUUID()}.jpg")
+        val ref = storage.reference.child("records/$groupId/$userId/${UUID.randomUUID()}.jpg")
         ref.putBytes(bytes, storageMetadata { contentType = "image/jpeg" }).await()
         return ref.downloadUrl.await().toString()
     }

@@ -1,30 +1,60 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+
     function isSignedIn() {
       return request.auth != null;
     }
+
     function isImage() {
       return request.resource.contentType.matches('image/.*')
              && request.resource.size < 5 * 1024 * 1024;
     }
-    // 그룹 이미지
-    match /groups/{fileName} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && isImage();
-      allow delete: if isSignedIn();
+
+    // Firestore 교차 확인 — 호출마다 Firestore 읽기 1건 과금 (업로드·삭제 때만 실행)
+    function groupExists(groupId) {
+      return firestore.exists(/databases/(default)/documents/groups/$(groupId));
     }
-    // 기록 인증샷 (records/{groupId}/{fileName})
-    match /records/{groupId}/{fileName} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && isImage();
-      allow delete: if isSignedIn();
+
+    function isGroupMember(groupId) {
+      return request.auth.uid in
+             firestore.get(/databases/(default)/documents/groups/$(groupId)).data.members;
     }
-    // 프로필 사진
-    match /profiles/{fileName} {
+
+    // 읽기는 로그인만 확인한다.
+    // 앱은 getDownloadUrl의 토큰 URL로 이미지를 띄우는데, 토큰 URL은 이 규칙을 거치지 않는다.
+    // 실제 보호는 URL이 담긴 Firestore 문서의 읽기 규칙에서 한다.
+    // 덮어쓰기(update)는 막는다 — 파일 이름이 항상 UUID라 앱은 덮어쓰지 않고,
+    // 열어두면 남의 사진을 같은 경로로 바꿔치기할 수 있다.
+
+    // 그룹 이미지 (groups/{groupId}/{fileName})
+    // 업로더 uid로 묶지 않는다 — 멤버 누구나 이미지를 바꾸고, 바꾼 사람이 이전 이미지를 지운다.
+    match /groups/{groupId}/{fileName} {
       allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && isImage();
-      allow delete: if isSignedIn();
+      // 그룹 생성 중엔 문서가 아직 없다 (ID를 먼저 만들고 업로드 → 문서 저장)
+      allow create: if isSignedIn() && isImage()
+                    && (!groupExists(groupId) || isGroupMember(groupId));
+      // 마지막 멤버가 나가면 문서가 먼저 지워진 뒤 이미지를 정리한다
+      allow delete: if isSignedIn()
+                    && (!groupExists(groupId) || isGroupMember(groupId));
+    }
+
+    // 기록 인증샷 (records/{groupId}/{userId}/{fileName})
+    match /records/{groupId}/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.auth.uid == userId
+                    && isImage()
+                    && isGroupMember(groupId);
+      // 본인 것만. 그룹이 사라진 뒤(탈퇴 후 정리)에도 지울 수 있게 멤버 확인은 안 한다
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 프로필 사진 (profiles/{userId}/{fileName})
+    match /profiles/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId && isImage();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
   }
 }
