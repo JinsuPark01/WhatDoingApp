@@ -55,6 +55,10 @@ service cloud.firestore {
     // records
     match /records/{recordId} {
 
+      function isRecordOwner() {
+        return request.auth.uid == resource.data.userId;
+      }
+
       // reactions 맵에서 바뀐 키가 '내 uid' 하나뿐이고, 값이 허용된 종류인지
       // (삭제면 키가 사라지므로 값 검사는 건너뛴다)
       function onlyMyReactionChanged() {
@@ -65,13 +69,18 @@ service cloud.firestore {
                    || after[request.auth.uid] in ['muscle', 'fire', 'clap']);
       }
 
-      // 리액션은 그 그룹 멤버만. get() 1회 = 읽기 1건 추가 과금
+      // 기록이 속한 그룹의 멤버인지. get() 1회 = 읽기 1건 추가 과금
       function isMemberOfRecordGroup() {
         return request.auth.uid in
                get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.members;
       }
 
-      allow read: if isSignedIn();    // A방식: 로그인이면 읽기
+      // 본인 기록이거나 그 그룹 멤버만 읽기.
+      // 본인 검사를 먼저 — userId == 내 uid 쿼리(닉네임 일괄 변경 등)는 여기서 통과해 get()을 거치지 않는다.
+      // groupId 쿼리는 멤버 검사로 넘어가 쿼리당 읽기 +1.
+      // 그룹이 삭제돼 get()이 실패해도 본인 기록은 앞에서 이미 통과한다 (탈퇴 후 정리 흐름).
+      allow read: if isSignedIn()
+                  && (isRecordOwner() || isMemberOfRecordGroup());
 
       // 생성 시 리액션을 미리 채워 넣지 못하게
       allow create: if isSignedIn()
@@ -81,7 +90,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
                     && (
                          // 작성자: 본문 수정 — 남의 리액션은 건드릴 수 없음
-                         (request.auth.uid == resource.data.userId
+                         (isRecordOwner()
                           && onlyMyReactionChanged())
                          ||
                          // 그룹원: reactions 필드의 내 키만
@@ -91,7 +100,7 @@ service cloud.firestore {
                        );
 
       allow delete: if isSignedIn()
-                    && request.auth.uid == resource.data.userId;
+                    && isRecordOwner();
     }
   }
 }

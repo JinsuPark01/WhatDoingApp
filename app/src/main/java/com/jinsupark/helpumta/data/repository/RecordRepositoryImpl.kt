@@ -232,20 +232,6 @@ class RecordRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getRecordsByUser(userId: String): Result<List<WorkoutRecord>> {
-        return try {
-            val snapshot = firestore.collection("records")
-                .whereEqualTo("userId", userId)
-                .get()
-                .await()
-
-            val records = snapshot.documents.mapNotNull { it.toWorkoutRecord() }
-            Result.success(records)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     override suspend fun getRecordById(recordId: String): Result<WorkoutRecord> {
         return try {
             val doc = firestore.collection("records").document(recordId).get().await()

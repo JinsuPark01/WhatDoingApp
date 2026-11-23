@@ -43,8 +43,6 @@ interface RecordRepository {
 
     // 내 리액션 설정. null이면 취소
     suspend fun setReaction(recordId: String, userId: String, reaction: Reaction?): Result<Unit>
-
-    suspend fun getRecordsByUser(userId: String): Result<List<WorkoutRecord>>
     suspend fun getRecordById(recordId: String): Result<WorkoutRecord>
     suspend fun deleteRecord(recordId: String, currentUserId: String): Result<Unit>
     suspend fun deleteRecordsByUserInGroup(groupId: String, userId: String): Result<Unit>
