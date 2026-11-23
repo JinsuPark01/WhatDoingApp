@@ -12,7 +12,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -32,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.jinsupark.helpumta.ui.component.FieldLabel
 import com.jinsupark.helpumta.ui.component.FormField
+import com.jinsupark.helpumta.ui.component.PillChip
 import com.jinsupark.helpumta.ui.theme.HelpumtaTheme
 
 @Composable
@@ -273,10 +273,8 @@ private fun RecordContent(
 }
 
 /**
- * 최근 종목 칩.
- * Material FilterChip 대신 직접 그린다 — 기본 칩은 테두리·체크 아이콘이 붙어
- * 입력 칸 아래 보조 요소치고 무게가 크다. 탭 영역만 확보한 알약 하나로 충분하다.
- * 선택 표시는 주황이 아니라 onSurface 반전으로 — 주황은 FAB·주요 버튼 몫이다.
+ * 최근 종목 칩 — 앱 공용 PillChip 사용.
+ * 입력값과 같은 종목은 선택 상태로 칠해서 "지금 이걸로 들어가 있음"을 보여준다.
  */
 @Composable
 private fun RecentTypeChips(
@@ -291,21 +289,10 @@ private fun RecentTypeChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         types.forEach { type ->
-            val isSelected = type == selected
-            Text(
+            PillChip(
                 text = type,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (isSelected) MaterialTheme.colorScheme.surface
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
-                    .clickable { onSelect(type) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                selected = type == selected,
+                onClick = { onSelect(type) }
             )
         }
     }
