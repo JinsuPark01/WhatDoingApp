@@ -6,11 +6,27 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // users — 닉네임 매핑
+    // users — 닉네임·프로필 사진 매핑 (로그인한 누구나 읽음 → 공개해도 되는 필드만)
     match /users/{userId} {
+
+      function isSelf() {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      // 규칙은 문서 단위로만 막을 수 있다 → 숨길 값은 이 문서에 아예 못 들어오게
+      function hasNoPrivateFields() {
+        return !request.resource.data.keys().hasAny(['fcmToken', 'email']);
+      }
+
       allow read: if isSignedIn();
-      allow write: if isSignedIn()
-                   && request.auth.uid == userId;
+      allow create, update: if isSelf() && hasNoPrivateFields();
+      // 삭제 요청엔 request.resource가 없어서 필드 검사를 같이 묶으면 항상 거부된다 → 분리
+      allow delete: if isSelf();
+
+      // 본인만 읽고 쓰는 값 (FCM 토큰)
+      match /private/{docId} {
+        allow read, write: if isSelf();
+      }
     }
 
     // groups

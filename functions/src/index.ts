@@ -1,7 +1,11 @@
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import {
+  getFirestore,
+  type DocumentReference,
+  type Timestamp,
+} from "firebase-admin/firestore";
 import { getMessaging, type Message } from "firebase-admin/messaging";
 
 initializeApp();
@@ -10,6 +14,7 @@ const db = getFirestore();
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const SEND_CHUNK = 500; // sendEach 1회 제한
+const READ_CHUNK = 100; // getAll 한 번에 넘길 문서 수 (요청 크기를 무난하게 유지)
 
 /**
  * 한국 시간 기준 '오늘 00:00'의 epoch millis.
@@ -28,10 +33,25 @@ function startOfTodayKst(now: Date): number {
   return midnightAsUtc - KST_OFFSET_MS;
 }
 
+/**
+ * 토큰은 users 문서가 아니라 본인만 읽는 하위 문서에 있다.
+ * (users는 로그인한 누구나 읽을 수 있어서 토큰을 두면 노출된다)
+ * 앱(UserRepositoryImpl)과 경로가 같아야 한다.
+ */
+function fcmDocRef(uid: string): DocumentReference {
+  return db.collection("users").doc(uid).collection("private").doc("fcm");
+}
+
 interface Target {
   uid: string;
   groupId: string;
   groupName: string;
+}
+
+interface TokenEntry {
+  token: string;
+  // 정리할 때 "읽은 뒤로 바뀌지 않았을 때만" 지우기 위한 기준
+  updateTime: Timestamp;
 }
 
 export const workoutReminder = onSchedule(
@@ -89,18 +109,7 @@ export const workoutReminder = onSchedule(
       return;
     }
 
-    // ── 4. 토큰 조회
-    // 그룹 수만큼 쿼리를 돌리면 읽기가 폭증하므로 users를 1회 조회해 메모리에서 조합한다.
-    const usersSnap = await db.collection("users").get();
-    const tokenByUid = new Map<string, string>();
-    usersSnap.forEach((doc) => {
-      const token = doc.data().fcmToken;
-      if (typeof token === "string" && token.length > 0) {
-        tokenByUid.set(doc.id, token);
-      }
-    });
-
-    // ── 5. 메시지 조립
+    // ── 4. 사용자별로 묶기
     // 발송 단위는 그룹이 아니라 사용자다.
     // 그룹마다 보내면 3개 그룹에 참여한 사람은 매일 저녁 알림 3개를 받는다.
     const byUid = new Map<string, Target[]>();
@@ -110,6 +119,30 @@ export const workoutReminder = onSchedule(
       else byUid.set(t.uid, [t]);
     }
 
+    // ── 5. 토큰 조회 — 보낼 사람 것만
+    // users 전체를 읽으면 사용자 수만큼 읽기가 나간다. 대상자 토큰 문서만 getAll로 한 번에.
+    const tokenByUid = new Map<string, TokenEntry>();
+    const uids = [...byUid.keys()];
+    for (let i = 0; i < uids.length; i += READ_CHUNK) {
+      const refs = uids.slice(i, i + READ_CHUNK).map(fcmDocRef);
+      const snaps = await db.getAll(...refs);
+      for (const snap of snaps) {
+        const token = snap.get("token");
+        // 결과 순서에 기대지 않고 경로에서 uid를 꺼낸다 (users/{uid}/private/fcm)
+        const uid = snap.ref.parent.parent?.id;
+        if (
+          snap.exists &&
+          uid &&
+          snap.updateTime &&
+          typeof token === "string" &&
+          token.length > 0
+        ) {
+          tokenByUid.set(uid, { token, updateTime: snap.updateTime });
+        }
+      }
+    }
+
+    // ── 6. 메시지 조립
     // data-only 페이로드를 쓴다. 앱이 백그라운드여도 onMessageReceived가 호출되어
     // 앱이 직접 알림을 만들 수 있다.
     // 대신 Doze 모드를 깨우려면 android.priority = high 가 필요하다.
@@ -117,13 +150,13 @@ export const workoutReminder = onSchedule(
     const messageUids: string[] = []; // 실패 응답을 uid로 되짚기 위한 병렬 배열
 
     for (const [uid, list] of byUid) {
-      const token = tokenByUid.get(uid);
-      if (!token) continue; // 토큰 없음(로그아웃 상태 등) → 건너뜀
+      const entry = tokenByUid.get(uid);
+      if (!entry) continue; // 토큰 없음(로그아웃 상태 등) → 건너뜀
 
       const single = list.length === 1;
 
       messages.push({
-        token,
+        token: entry.token,
         // FCM data 페이로드의 값은 전부 문자열이어야 한다
         data: {
           title: "오늘 운동 기록이 비어 있어요",
@@ -144,7 +177,7 @@ export const workoutReminder = onSchedule(
       return;
     }
 
-    // ── 6. 발송
+    // ── 7. 발송
     const deadTokenUids = new Set<string>();
     let success = 0;
     let failure = 0;
@@ -173,22 +206,23 @@ export const workoutReminder = onSchedule(
       });
     }
 
-    // ── 7. 죽은 토큰 정리
+    // ── 8. 죽은 토큰 정리
+    // 읽은 뒤 사용자가 새 토큰을 등록했을 수 있다 → 문서가 그대로일 때만 지운다(lastUpdateTime 전제조건).
+    // 배치는 하나만 실패해도 전부 취소되므로 개별 삭제로 돌리고, 전제조건 실패는 정상 상황으로 본다.
+    let cleaned = 0;
     if (deadTokenUids.size > 0) {
-      const batch = db.batch();
-      for (const uid of deadTokenUids) {
-        // update()는 문서가 없으면 실패하므로 set(merge)로 삭제 센티넬 전송
-        batch.set(
-          db.collection("users").doc(uid),
-          { fcmToken: FieldValue.delete() },
-          { merge: true }
-        );
-      }
-      await batch.commit();
+      const results = await Promise.allSettled(
+        [...deadTokenUids].map((uid) => {
+          const entry = tokenByUid.get(uid);
+          if (!entry) return Promise.resolve();
+          return fcmDocRef(uid).delete({ lastUpdateTime: entry.updateTime });
+        })
+      );
+      cleaned = results.filter((r) => r.status === "fulfilled").length;
     }
 
     logger.info(
-      `리마인더 완료 성공=${success} 실패=${failure} 토큰정리=${deadTokenUids.size}`
+      `리마인더 완료 성공=${success} 실패=${failure} 토큰정리=${cleaned}/${deadTokenUids.size}`
     );
   }
 );
