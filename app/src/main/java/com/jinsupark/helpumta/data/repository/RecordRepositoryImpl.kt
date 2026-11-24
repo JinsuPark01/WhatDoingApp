@@ -321,4 +321,43 @@ class RecordRepositoryImpl @Inject constructor(
         ref.putBytes(bytes, storageMetadata { contentType = "image/jpeg" }).await()
         return ref.downloadUrl.await().toString()
     }
+
+    override suspend fun removeReactionsByUserInGroup(
+        groupId: String,
+        userId: String
+    ): Result<Unit> {
+        return try {
+            // groupId 조건만 건다. reactions.{uid}는 사람마다 필드 경로가 달라
+            // groupId와 묶는 복합 인덱스를 미리 만들 수 없다 → 내 리액션 여부는 여기서 거른다.
+            // 그룹을 나갈 때 한 번만 실행되므로 그룹 기록 전체를 읽는 비용은 감수한다.
+            val snapshot = firestore.collection("records")
+                .whereEqualTo("groupId", groupId)
+                .get()
+                .await()
+
+            val targets = snapshot.documents.filter { doc ->
+                // 내 기록은 바로 뒤에 통째로 지워지므로 건너뛴다
+                doc.getString("userId") != userId &&
+                        (doc.get("reactions") as? Map<*, *>)?.containsKey(userId) == true
+            }
+
+            // 문서마다 규칙이 그룹 문서를 get()으로 확인한다.
+            // 배치 1회당 규칙의 문서 조회 한도(20회)를 넘지 않게 작게 나눈다.
+            targets.chunked(REACTION_BATCH_SIZE).forEach { chunk ->
+                val batch = firestore.batch()
+                chunk.forEach { doc ->
+                    batch.update(doc.reference, FieldPath.of("reactions", userId), FieldValue.delete())
+                }
+                batch.commit().await()
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private companion object {
+        const val REACTION_BATCH_SIZE = 10
+    }
 }

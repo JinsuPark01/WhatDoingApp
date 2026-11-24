@@ -46,4 +46,5 @@ interface RecordRepository {
     suspend fun getRecordById(recordId: String): Result<WorkoutRecord>
     suspend fun deleteRecord(recordId: String, currentUserId: String): Result<Unit>
     suspend fun deleteRecordsByUserInGroup(groupId: String, userId: String): Result<Unit>
+    suspend fun removeReactionsByUserInGroup(groupId: String, userId: String): Result<Unit>
 }
