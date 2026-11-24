@@ -1,20 +1,30 @@
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onDocumentDeleted } from "firebase-functions/v2/firestore";
+import * as functionsV1 from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import {
   getFirestore,
+  FieldPath,
+  FieldValue,
   type DocumentReference,
+  type QuerySnapshot,
   type Timestamp,
 } from "firebase-admin/firestore";
 import { getMessaging, type Message } from "firebase-admin/messaging";
+import { getStorage } from "firebase-admin/storage";
 
 initializeApp();
 
 const db = getFirestore();
 
+const REGION = "asia-northeast3";
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const SEND_CHUNK = 500; // sendEach 1회 제한
 const READ_CHUNK = 100; // getAll 한 번에 넘길 문서 수 (요청 크기를 무난하게 유지)
+
+// 앱의 Reaction enum 키와 같아야 한다 (firestore.rules에도 같은 목록이 있다)
+const REACTION_KEYS = ["muscle", "fire", "clap"];
 
 /**
  * 한국 시간 기준 '오늘 00:00'의 epoch millis.
@@ -42,6 +52,32 @@ function fcmDocRef(uid: string): DocumentReference {
   return db.collection("users").doc(uid).collection("private").doc("fcm");
 }
 
+/**
+ * Storage 경로 하나를 통째로 지운다. 없으면 아무 일도 안 한다.
+ * 정리는 '되면 좋은 뒷정리'라 실패해도 Function 전체를 실패시키지 않는다.
+ */
+async function deleteStoragePrefix(prefix: string): Promise<void> {
+  try {
+    await getStorage().bucket().deleteFiles({ prefix, force: true });
+  } catch (e) {
+    logger.warn(`Storage 정리 실패 prefix=${prefix}`, e);
+  }
+}
+
+/** 쿼리 결과 문서를 전부 삭제한다. BulkWriter가 500건 제한·재시도를 알아서 처리한다. */
+async function deleteAll(snap: QuerySnapshot): Promise<void> {
+  if (snap.empty) return;
+  const writer = db.bulkWriter();
+  snap.forEach((doc) => {
+    writer.delete(doc.ref);
+  });
+  await writer.close();
+}
+
+// ─────────────────────────────────────────────
+// 1. 매일 21시 미작성 리마인더
+// ─────────────────────────────────────────────
+
 interface Target {
   uid: string;
   groupId: string;
@@ -58,7 +94,7 @@ export const workoutReminder = onSchedule(
   {
     schedule: "0 21 * * *",
     timeZone: "Asia/Seoul",
-    region: "asia-northeast3",
+    region: REGION,
     // 재시도하면 같은 알림이 두 번 갈 수 있으므로 끈다.
     // 리마인더 한 번 놓치는 것보다 중복 발송이 더 나쁘다.
     retryCount: 0,
@@ -224,5 +260,92 @@ export const workoutReminder = onSchedule(
     logger.info(
       `리마인더 완료 성공=${success} 실패=${failure} 토큰정리=${cleaned}/${deadTokenUids.size}`
     );
+  }
+);
+
+// ─────────────────────────────────────────────
+// 2. 계정 삭제 정리
+// 앱도 탈퇴 흐름에서 같은 정리를 하지만, 중간에 앱이 꺼지거나 네트워크가 끊기면 남는다.
+// 여기는 그 안전망. 앱이 이미 지운 건 '없는 걸 지우기'라 그냥 지나간다 (멱등).
+// Auth 삭제 트리거는 2세대에 없어서 1세대 API를 쓴다.
+// ─────────────────────────────────────────────
+
+export const cleanupDeletedUser = functionsV1
+  .region(REGION)
+  .auth.user()
+  .onDelete(async (user) => {
+    const uid = user.uid;
+    // 기록 인증샷 경로(records/{groupId}/{uid}/)를 지우려면 그룹 ID가 필요하다
+    const groupIds = new Set<string>();
+
+    // ── 1. 내 기록
+    const myRecords = await db.collection("records").where("userId", "==", uid).get();
+    myRecords.forEach((doc) => {
+      const groupId = doc.get("groupId");
+      if (typeof groupId === "string") groupIds.add(groupId);
+    });
+    await deleteAll(myRecords);
+
+    // ── 2. 남의 기록에 남긴 내 리액션 — 남겨두면 탈퇴자가 개수에 계속 잡힌다
+    // reactions.{uid} 값이 허용된 키 중 하나인 문서 = 내가 리액션한 문서
+    const reacted = await db
+      .collection("records")
+      .where(new FieldPath("reactions", uid), "in", REACTION_KEYS)
+      .get();
+    if (!reacted.empty) {
+      const writer = db.bulkWriter();
+      reacted.forEach((doc) => {
+        writer.update(doc.ref, new FieldPath("reactions", uid), FieldValue.delete());
+      });
+      await writer.close();
+    }
+
+    // ── 3. 속한 그룹에서 빠지기 — 마지막 멤버면 그룹 삭제 (→ cleanupDeletedGroup이 이어서 정리)
+    const myGroups = await db.collection("groups").where("members", "array-contains", uid).get();
+    for (const groupDoc of myGroups.docs) {
+      groupIds.add(groupDoc.id);
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(groupDoc.ref);
+        if (!snap.exists) return;
+        const members: string[] = Array.isArray(snap.get("members")) ? snap.get("members") : [];
+        const remaining = members.filter((m) => m !== uid);
+        if (remaining.length === 0) tx.delete(groupDoc.ref);
+        else tx.update(groupDoc.ref, { members: remaining });
+      });
+    }
+
+    // ── 4. users 문서 + 하위 컬렉션(private/fcm) 전부
+    // 일반 delete는 하위 컬렉션을 남긴다 → recursiveDelete
+    await db.recursiveDelete(db.collection("users").doc(uid));
+
+    // ── 5. Storage
+    await deleteStoragePrefix(`profiles/${uid}/`);
+    for (const groupId of groupIds) {
+      await deleteStoragePrefix(`records/${groupId}/${uid}/`);
+    }
+
+    logger.info(
+      `계정 정리 완료 uid=${uid} 기록=${myRecords.size} 리액션=${reacted.size} 그룹=${myGroups.size}`
+    );
+  });
+
+// ─────────────────────────────────────────────
+// 3. 그룹 삭제 정리
+// 마지막 멤버가 나가면 그룹 문서가 지워진다. 그 그룹에 남은 기록·사진을 전부 치운다.
+// 트리거 리전은 Firestore 데이터베이스 위치와 같아야 한다.
+// ─────────────────────────────────────────────
+
+export const cleanupDeletedGroup = onDocumentDeleted(
+  { document: "groups/{groupId}", region: REGION },
+  async (event) => {
+    const groupId = event.params.groupId;
+
+    const records = await db.collection("records").where("groupId", "==", groupId).get();
+    await deleteAll(records);
+
+    await deleteStoragePrefix(`records/${groupId}/`);
+    await deleteStoragePrefix(`groups/${groupId}/`);
+
+    logger.info(`그룹 정리 완료 groupId=${groupId} 기록=${records.size}`);
   }
 );
