@@ -20,8 +20,8 @@ android {
         applicationId = "com.jinsupark.helpumta"
         minSdk = 24
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.0.4"
+        versionCode = 9
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -41,7 +41,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: 안 쓰는 코드 제거 + 이름 난독화 + 최적화
+            isMinifyEnabled = true
+            // 코드가 줄면서 참조가 끊긴 리소스(이미지·문자열)도 제거. minify가 켜져 있어야 동작한다
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
