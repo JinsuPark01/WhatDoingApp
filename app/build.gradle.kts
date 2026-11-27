@@ -20,8 +20,8 @@ android {
         applicationId = "com.jinsupark.helpumta"
         minSdk = 24
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.0.5"
+        versionCode = 10
+        versionName = "1.0.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -45,6 +45,10 @@ android {
             isMinifyEnabled = true
             // 코드가 줄면서 참조가 끊긴 리소스(이미지·문자열)도 제거. minify가 켜져 있어야 동작한다
             isShrinkResources = true
+            ndk {
+                // 라이브러리에 포함된 네이티브 코드의 기호를 AAB에 같이 넣는다 (Play 비정상 종료 분석용)
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
